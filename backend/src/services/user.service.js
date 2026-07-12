@@ -1,65 +1,29 @@
-const users = [];
-var nextId = 1;
-
-
+import * as userRepository from '../repositories/user.repository.js';
 export function createUser(name, age) {
-    const user = {
-            'id' : nextId++,
-            'name' : name,
-            'age' : age
-        };
-    users.push(user);
+    const user = userRepository.createUser(name, age);
+    userRepository.saveUser(user);
     return user;
 }
 
 export function getUsers(){
-    return users;
+    return userRepository.getAllUsers();
 }
 
 export function getUserById(id){
-    const user = users.find(u => u.id === parseInt(id));
-    if(user){
-        return user;
-    }
-    else{
-        return null;
-    }
+    return userRepository.getUserById(id);
 }
 
 export function updateUser(id , name , age){
-    const user = users.find(u => u.id === Number(id));
-    if(user){
-        user.name = name;
-        user.age = age;
-        return user;
-    }
-    else{
-        return null;
-    }
+    return userRepository.updateUser(id, name, age);
+    
 }
 
 
 export function patchUser(id , name , age){
-    const user = users.find(u => u.id === Number(id));
-    if(user){
-        if(name !== undefined){
-            user.name = name;
-        }
-        if(age !== undefined){
-            user.age = age;
-        }
-        return user;
-    }
-    else{
-        return null;
-    }
+    return userRepository.patchUser(id, name, age);
+    
 }
 
-export function deleteUser(id){
-    const user = users.findIndex(u => u.id === Number(id));
-    if(user === -1){
-        return null;
-    }
-    users.splice(user, 1); 
-    return true;
+export function deleteUser(id){ 
+    return userRepository.deleteUser(id);
 }
