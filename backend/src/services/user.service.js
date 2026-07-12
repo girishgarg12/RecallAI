@@ -1,8 +1,12 @@
 import * as userRepository from '../repositories/user.repository.js';
-export function createUser(name, age) {
-    const user = userRepository.createUser(name, age);
-    userRepository.saveUser(user);
-    return user;
+
+export async function createUser(name, age) {
+    const user = {
+        name,
+        age
+    }
+    const savedUser = await userRepository.saveUser(user);
+    return savedUser;
 }
 
 export function getUsers(){

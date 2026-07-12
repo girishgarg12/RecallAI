@@ -1,18 +1,15 @@
-const users = [];
-var nextId = 1;
+import pool from "../database/connection.js";
 
 
-export function createUser(name, age) {
-    const user = {
-            'id' : nextId++,
-            'name' : name,
-            'age' : age
-    };
-    return user;
-}
-
-export function saveUser(user) {
-    users.push(user);
+export async function saveUser(user) {
+    const query = `
+        INSERT INTO users (name, age)
+        VALUES ($1, $2)
+        RETURNING *;
+    `;
+    const values = [user.name, user.age];
+    const result = await pool.query(query, values);
+    return result.rows[0];
 }
 
 export function getAllUsers() {

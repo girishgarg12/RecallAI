@@ -1,7 +1,7 @@
 import * as userService from "../services/user.service.js";
 
-export function createUser(req, res) {
-    const user = userService.createUser(req.body.name, req.body.age);
+export async function createUser(req, res) {
+    const user = await userService.createUser(req.body.name, req.body.age);
     res.status(201).json(user);
 }
 
