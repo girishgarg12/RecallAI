@@ -12,25 +12,41 @@ export async function saveUser(user) {
     return result.rows[0];
 }
 
-export function getAllUsers() {
-    return users;
+export async function getAllUsers() {
+    const query = `
+        SELECT * FROM users;
+        `;
+    const result = await pool.query(query);
+    return result.rows;
 }
 
-export function getUserById(id) {
-    const user = users.find(u => u.id === Number(id));
-    if (user) {
-        return user;
+export async function getUserById(id) {
+    const query = `
+    SELECT * FROM users
+    WHERE id = $1
+    `;
+    const values = [id];
+    const result = await pool.query(query, values);
+    if(result.rows.length === 0) {
+        return null;
     }
-    return null;
+    return result.rows[0];
 }
-export function updateUser(id, name, age) {
-    const user = users.find(u => u.id === Number(id));
-    if (user) {
-        user.name = name;
-        user.age = age;
-        return user;
+
+export async function updateUser(id, name, age) {
+    const query = `
+    UPDATE users
+    SET name = $1,
+        age = $2
+    WHERE id = $3
+    RETURNING *
+    `;
+    const values = [name, age, id];
+    const result = await pool.query(query, values);
+    if(result.rows.length === 0) {
+        return null;
     }
-    return null;
+    return result.rows[0];
 }
 
 export function patchUser(id , name , age){

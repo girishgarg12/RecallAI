@@ -9,17 +9,18 @@ export async function createUser(name, age) {
     return savedUser;
 }
 
-export function getUsers(){
-    return userRepository.getAllUsers();
+export async function getUsers(){
+    return await userRepository.getAllUsers();
 }
 
-export function getUserById(id){
-    return userRepository.getUserById(id);
+export async function getUserById(id){
+    const user = await userRepository.getUserById(id);
+    return user;
 }
 
-export function updateUser(id , name , age){
-    return userRepository.updateUser(id, name, age);
-    
+export async function updateUser(id , name , age){
+    const user = await userRepository.updateUser(id, name, age);
+    return user;
 }
 
 

@@ -5,13 +5,13 @@ export async function createUser(req, res) {
     res.status(201).json(user);
 }
 
-export function getUsers(req, res){
-    const users = userService.getUsers();
+export async function getUsers(req, res){
+    const users = await userService.getUsers();
     res.status(200).json(users);
 }
 
-export function getUserById(req, res){
-    const user = userService.getUserById(req.params.id);
+export async function getUserById(req, res){
+    const user = await userService.getUserById(req.params.id);
     if(user){
         res.status(200).json(user);
     }
@@ -20,8 +20,8 @@ export function getUserById(req, res){
     }
 }
 
-export function updateUser(req, res){
-    const user = userService.updateUser(req.params.id, req.body.name, req.body.age);
+export async function updateUser(req, res){
+    const user = await userService.updateUser(req.params.id, req.body.name, req.body.age);
     if(user){
         res.status(200).json(user);
     }
