@@ -24,11 +24,12 @@ export async function updateUser(id , name , age){
 }
 
 
-export function patchUser(id , name , age){
-    return userRepository.patchUser(id, name, age);
-    
+export async function patchUser(id , updates){
+    const user = await userRepository.patchUser(id, updates);
+    return user;
 }
 
-export function deleteUser(id){ 
-    return userRepository.deleteUser(id);
+export async function deleteUser(id){ 
+    const user = await userRepository.deleteUser(id);
+    return user;
 }

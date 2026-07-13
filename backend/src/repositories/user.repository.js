@@ -49,27 +49,36 @@ export async function updateUser(id, name, age) {
     return result.rows[0];
 }
 
-export function patchUser(id , name , age){
-    const user = users.find(u => u.id === Number(id));
-    if(user){
-        if(name !== undefined){
-            user.name = name;
-        }
-        if(age !== undefined){
-            user.age = age;
-        }
-        return user;
+export async function patchUser(id , updates){
+    const setClauses = [];
+    const values = [];
+    for(const [field, value] of Object.entries(updates)){
+        values.push(value);
+        setClauses.push(`${field} = $${values.length}`);
     }
-    else{
-        return null;
-    }
+    values.push(id);
+
+    const query = `
+    UPDATE users
+    SET ${setClauses.join(", ")}
+    WHERE id = $${values.length}
+    Returning *
+    `;
+
+    const result = await pool.query(query, values);
+
+    if(result.rows.length === 0) return null;
+    return result.rows[0];
 }
 
-export function deleteUser(id) {
-    const userIndex = users.findIndex(u => u.id === Number(id));
-    if (userIndex !== -1) {
-        users.splice(userIndex, 1);
-        return true;
-    }
-    return null;
+export async function deleteUser(id) {
+    const query = `
+    DELETE FROM USERS
+    WHERE id = $1
+    `;
+    const values = [id];
+    const result = await pool.query(query, values);
+
+    if(result.rowCount === 0) return null;
+    return true;
 }

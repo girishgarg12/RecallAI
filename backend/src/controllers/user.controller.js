@@ -32,8 +32,8 @@ export async function updateUser(req, res){
     }
 }
 
-export function patchUser(req, res){
-    const user = userService.patchUser(req.params.id, req.body.name, req.body.age);
+export async function patchUser(req, res){
+    const user = await userService.patchUser(req.params.id, req.body);
     if(user){
         res.status(200).json(user);
     }
@@ -44,8 +44,8 @@ export function patchUser(req, res){
     }
 }
 
-export function deleteUser(req, res){
-    const user = userService.deleteUser(req.params.id);
+export async function deleteUser(req, res){
+    const user = await userService.deleteUser(req.params.id);
     if(user){
         res.sendStatus(204);
     }

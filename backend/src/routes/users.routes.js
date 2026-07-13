@@ -8,6 +8,7 @@ import {
     patchUser,
     deleteUser
 } from "../controllers/user.controller.js";
+import validatePatchUser from '../middleware/validatePatchUser.js';
 const router = express.Router();
 
 router.post("/", validateCreateUser, createUser);
@@ -18,7 +19,7 @@ router.get("/:id", getUserById);
 
 router.put("/:id", updateUser);
 
-router.patch("/:id", patchUser);
+router.patch("/:id", validatePatchUser, patchUser);
 
 router.delete("/:id", deleteUser);
 
