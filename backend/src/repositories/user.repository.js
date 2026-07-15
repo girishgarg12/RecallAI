@@ -3,11 +3,11 @@ import pool from "../database/connection.js";
 
 export async function saveUser(user) {
     const query = `
-        INSERT INTO users (name, age)
-        VALUES ($1, $2)
+        INSERT INTO users (name, email, password_hash)
+        VALUES ($1, $2, $3)
         RETURNING *;
     `;
-    const values = [user.name, user.age];
+    const values = [user.name, user.email, user.password];
     const result = await pool.query(query, values);
     return result.rows[0];
 }
@@ -81,4 +81,14 @@ export async function deleteUser(id) {
 
     if(result.rowCount === 0) return null;
     return true;
+}
+
+export async function findUserByEmail(email) {
+    const query = `
+    SELECT * FROM users
+    WHERE email = $1
+    `;
+    const values = [email];
+    const result = await pool.query(query, values);
+    return result.rows[0] || null;
 }
