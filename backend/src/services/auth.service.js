@@ -16,3 +16,13 @@ export async function registerUser(name, email, password) {
     });
     return savedUser;
 }
+
+export async function loginUser(email, password) {
+    const user = await userRepository.findUserByEmail(email);
+    if(!user) throw new AppError("Invalid email or password", 401);
+
+    const isValid = await bcrypt.compare(password, user.password_hash);
+    if(!isValid) throw new AppError("Invalid email or password", 401);
+
+    return user;
+}
