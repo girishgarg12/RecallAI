@@ -9,11 +9,12 @@ import {
     deleteUser
 } from "../controllers/user.controller.js";
 import validatePatchUser from '../middleware/validatePatchUser.js';
+import authenticate from '../middleware/authenticate.js';
 const router = express.Router();
 
 router.post("/", validateCreateUser, createUser);
 
-router.get("/", getUsers);
+router.get("/", authenticate, getUsers);
 
 router.get("/:id", getUserById);
 
