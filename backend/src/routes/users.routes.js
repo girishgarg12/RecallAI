@@ -1,7 +1,5 @@
 import express from 'express';
-import validateCreateUser from "../middleware/validateCreateUser.js";
 import {
-    createUser,
     getUsers,
     getUserById,
     updateUser,
@@ -12,16 +10,14 @@ import validatePatchUser from '../middleware/validatePatchUser.js';
 import authenticate from '../middleware/authenticate.js';
 const router = express.Router();
 
-router.post("/", validateCreateUser, createUser);
-
 router.get("/", authenticate, getUsers);
 
-router.get("/:id", getUserById);
+router.get("/:id", authenticate, getUserById);
 
-router.put("/:id", updateUser);
+router.put("/:id",authenticate, updateUser);
 
-router.patch("/:id", validatePatchUser, patchUser);
+router.patch("/:id", authenticate, validatePatchUser, patchUser);
 
-router.delete("/:id", deleteUser);
+router.delete("/:id",authenticate, deleteUser);
 
 export default router;
