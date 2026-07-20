@@ -1,8 +1,10 @@
 import * as userRepository from '../repositories/user.repository.js';
 import AppError from '../errors/AppError.js';
-import * as authorizationService from './authorization.service.js';
+import { ensureOwnerOrAdmin , ensureRole} from './authorization.service.js';
 
-export async function getUsers(){
+export async function getUsers(authenticatedUser){
+    ensureRole(authenticatedUser, ["ADMIN"]);
+    
     return await userRepository.getAllUsers();
 }
 
@@ -15,7 +17,7 @@ export async function getUserById(id){
 }
 
 export async function updateUser(authenticatedUser, id , name , age){
-    authorizationService.ensureOwnerOrAdmin(authenticatedUser, id);
+    ensureOwnerOrAdmin(authenticatedUser, id);
 
     const user = await userRepository.updateUser(id, name, age);
     if(!user) {
@@ -26,7 +28,7 @@ export async function updateUser(authenticatedUser, id , name , age){
 
 
 export async function patchUser(authenticatedUser, id , updates){
-    authorizationService.ensureOwnerOrAdmin(authenticatedUser, id);
+    ensureOwnerOrAdmin(authenticatedUser, id);
 
     const user = await userRepository.patchUser(id, updates);
     if(!user) {
@@ -36,7 +38,7 @@ export async function patchUser(authenticatedUser, id , updates){
 }
 
 export async function deleteUser(authenticatedUser, id){ 
-    authorizationService.ensureOwnerOrAdmin(authenticatedUser, id);
+    ensureOwnerOrAdmin(authenticatedUser, id);
 
     const user = await userRepository.deleteUser(id);
     if(!user) {
