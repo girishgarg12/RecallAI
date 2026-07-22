@@ -1,6 +1,6 @@
-import pool from '../database/connection';
+import pool from '../database/connection.js';
 
-export async function createWorkspace({ name, description, visibility, ownerId}) {
+export async function createWorkspace({ name, description, visibility, ownerId }) {
     const query = `
     INSERT INTO workspaces (name, description, visibility, owner_id)
     VALUES ($1, $2, $3, $4)
