@@ -10,3 +10,9 @@ export async function createWorkspace(workspaceData, authenticatedUser){
     const result = await workspaceRepository.createWorkspace(workspace);
     return result;
 }
+
+export async function getOwnedWorkspace(authenticatedUser) {
+    const ownerId = authenticatedUser.id;
+    const workspaces = await workspaceRepository.getOwnedWorkspace(ownerId);
+    return workspaces;
+}

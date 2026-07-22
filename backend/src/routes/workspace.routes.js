@@ -7,4 +7,6 @@ const router = express.Router();
 
 router.post("/", authenticate, validateCreateWorkspace, workspaceController.createWorkspace);
 
+router.get("/", authenticate, workspaceController.getOwnedWorkspaces);
+
 export default router;
