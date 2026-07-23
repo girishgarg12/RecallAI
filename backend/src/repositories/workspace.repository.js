@@ -28,3 +28,20 @@ export async function getOwnedWorkspaces(ownerId) {
     return result.rows;
 }
 
+export async function findOwnedWorkspaceById(workspaceId, ownerId) {
+    const query = `
+    SELECT
+        id,
+        name,
+        description,
+        visibility,
+        owner_id
+    FROM workspaces
+    WHERE id = $1
+    AND owner_id = $2
+    `;
+
+    const values = [workspaceId, ownerId];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+}

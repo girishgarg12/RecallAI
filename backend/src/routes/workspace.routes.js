@@ -9,4 +9,6 @@ router.post("/", authenticate, validateCreateWorkspace, workspaceController.crea
 
 router.get("/", authenticate, workspaceController.getOwnedWorkspaces);
 
+router.get("/:id", authenticate, workspaceController.getOwnedWorkspaceById);
+
 export default router;
