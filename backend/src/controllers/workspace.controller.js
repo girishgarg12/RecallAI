@@ -28,3 +28,11 @@ export async function updateOwnedWorkspace(req, res) {
 
     res.status(200).json(workspace);
 }
+
+export async function deleteOwnedWorkspace(req, res) {
+    const result = await workspaceService.deleteOwnedWorkspace(
+        req.params.id,
+        req.user
+    )
+    res.status(204).send("Workspace deleted sucessfully");
+}

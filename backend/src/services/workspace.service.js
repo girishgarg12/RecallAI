@@ -41,3 +41,13 @@ export async function updateOwnedWorkspace(workspaceId, authenticatedUser, updat
 
     return workspace;
 }
+
+export async function deleteOwnedWorkspace(workspaceId, authenticatedUser) {
+    const result = await workspaceRepository.deleteOwnedWorkspace(
+        Number(workspaceId),
+        authenticatedUser.id
+    )
+    if(!result)
+        throw new AppError("Workspace noot found", 404);
+    return result;
+}

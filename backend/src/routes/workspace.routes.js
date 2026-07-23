@@ -15,4 +15,5 @@ router.get("/:id", authenticate, workspaceController.getOwnedWorkspaceById);
 
 router.patch("/:id", authenticate, validatePatchWorkspace, workspaceController.updateOwnedWorkspace);
 
+router.delete("/:id", authenticate, workspaceController.deleteOwnedWorkspace);
 export default router;

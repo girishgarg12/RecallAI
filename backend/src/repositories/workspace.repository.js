@@ -83,3 +83,16 @@ export async function updateOwnedWorkspace(
 
     return result.rows[0];
 }
+
+export async function deleteOwnedWorkspace(workspaceId, ownerId) {
+    const query = `
+    DELETE FROM workspaces
+    WHERE id = $1
+    AND owner_id = $2
+    RETURNING id
+    `;
+
+    const values = [workspaceId, ownerId];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+}
