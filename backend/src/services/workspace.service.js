@@ -28,3 +28,16 @@ export async function getOwnedWorkspacebyId(workspaceId, authenticatedUser) {
     }
     return workspace;
 }
+
+export async function updateOwnedWorkspace(workspaceId, authenticatedUser, updates) {
+    const workspace = await workspaceRepository.updateOwnedWorkspace(
+        Number(workspaceId),
+        authenticatedUser.id,
+        updates
+    )
+
+    if(!workspace)
+        throw new AppError("Workspace not found", 404);
+
+    return workspace;
+}

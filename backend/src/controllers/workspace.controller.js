@@ -18,3 +18,13 @@ export async function getOwnedWorkspaceById(req, res) {
     const workspace = await workspaceService.getOwnedWorkspacebyId(workspaceId, req.user);
     res.status(200).json(workspace);
 }
+
+export async function updateOwnedWorkspace(req, res) {
+    const workspace = await workspaceService.updateOwnedWorkspace(
+        req.params.id,
+        req.user,
+        req.body
+    )
+
+    res.status(200).json(workspace);
+}
