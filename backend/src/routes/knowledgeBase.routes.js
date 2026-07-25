@@ -10,4 +10,6 @@ router.post("/", authenticate, validateCreateKnowledgeBase, knowledgeBaseControl
 
 router.get("/", authenticate, validategetKnowledgeBases, knowledgeBaseController.getKnowledgeBasesByWorkspace);
 
+router.get("/:knowledgeBaseId", authenticate, knowledgeBaseController.getKnowledgeBaseById);
+
 export default router;

@@ -32,3 +32,21 @@ export async function getKnowledgeBasesByWorkspace(workspaceId){
     const result = await pool.query(query, values);
     return result.rows;
 }
+
+export async function findKnowledgeBaseById(knowloedgeBaseId) {
+    const query = `
+    SELECT
+        id,
+        name,
+        description,
+        created_at,
+        updated_at,
+        workspace_id
+    FROM knowledge_bases
+    WHERE id = $1
+    `;
+
+    const values = [knowloedgeBaseId];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+}

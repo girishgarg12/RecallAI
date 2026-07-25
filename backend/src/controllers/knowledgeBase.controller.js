@@ -16,3 +16,11 @@ export async function getKnowledgeBasesByWorkspace(req, res) {
     )
     res.status(200).json(knowledgeBases);
 }
+
+export async function getKnowledgeBaseById(req, res) {
+    const knowledgeBase = await knowledgeBaseService.getKnowledgeBaseById(
+        req.params.knowledgeBaseId,
+        req.user
+    )
+    res.status(200).json(knowledgeBase);
+}

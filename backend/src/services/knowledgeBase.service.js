@@ -24,3 +24,20 @@ export async function getKnowledgeBasesByWorkspace(workspaceId, authenticatedUse
     )
     return knowledgeBases;
 }
+
+export async function getKnowledgeBaseById(knowledgeBaseId, authenticatedUser) {
+    const knowledgeBase = await knowledgeBaseRepository.findKnowledgeBaseById(
+        Number(knowledgeBaseId)
+    )
+    if(!knowledgeBase)
+        throw new AppError("KnowledgeBase not found", 404);
+
+    const workspaceId = knowledgeBase.workspace_id;
+    const validWorkspace = await workspaceService.getOwnedWorkspacebyId(
+        workspaceId,
+        authenticatedUser
+    )
+    const { workspace_id, ...knowledgeBaseResponse } = knowledgeBase;
+
+    return knowledgeBaseResponse;
+}
