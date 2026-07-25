@@ -41,3 +41,30 @@ export async function getKnowledgeBaseById(knowledgeBaseId, authenticatedUser) {
 
     return knowledgeBaseResponse;
 }
+
+export async function patchKnowledgeBase(knowledgeBaseId, knowledgeBaseData, authenticatedUser) {
+    await getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    const knowledgeBase =
+        await knowledgeBaseRepository.patchKnowledgeBase(
+            Number(knowledgeBaseId),
+            knowledgeBaseData
+        );
+
+    const { workspace_id, ...response } = knowledgeBase;
+
+    return response;
+}
+
+export async function deleteKnowledgeBase(knowledgeBaseId, authenticatedUser) {
+    await getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    )
+
+    const result = await knowledgeBaseRepository.deleteKnowledgeBase(knowledgeBaseId);
+    return result;
+}

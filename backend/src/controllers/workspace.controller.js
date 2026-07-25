@@ -34,5 +34,5 @@ export async function deleteOwnedWorkspace(req, res) {
         req.params.id,
         req.user
     )
-    res.status(204).send("Workspace deleted sucessfully");
+    return res.status(204);
 }

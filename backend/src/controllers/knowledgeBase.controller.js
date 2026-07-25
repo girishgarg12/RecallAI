@@ -24,3 +24,22 @@ export async function getKnowledgeBaseById(req, res) {
     )
     res.status(200).json(knowledgeBase);
 }
+
+export async function patchKnowledgeBase(req, res) {
+    const knowledgeBase =
+        await knowledgeBaseService.patchKnowledgeBase(
+            req.params.knowledgeBaseId,
+            req.body,
+            req.user
+        );
+
+    return res.status(200).json(knowledgeBase);
+}
+
+export async function deleteKnowledgeBase(req, res) {
+    const result = await knowledgeBaseService.deleteKnowledgeBase(
+        req.params.knowledgeBaseId,
+        req.user
+    )
+    return res.sendStatus(204)
+}
