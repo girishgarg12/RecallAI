@@ -7,3 +7,12 @@ export async function createKnowledgeBase(req, res) {
     )
     res.status(201).json(knowledgeBase);
 }
+
+export async function getKnowledgeBasesByWorkspace(req, res) {
+    const { workspaceId } = req.query;
+    const knowledgeBases = await knowledgeBaseService.getKnowledgeBasesByWorkspace(
+        workspaceId,
+        req.user
+    )
+    res.status(200).json(knowledgeBases);
+}

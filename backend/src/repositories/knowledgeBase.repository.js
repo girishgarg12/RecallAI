@@ -14,3 +14,21 @@ export async function createKnowledgeBase({name, description, workspaceId}) {
     const result = await pool.query(query, values);
     return result.rows[0];
 }
+
+export async function getKnowledgeBasesByWorkspace(workspaceId){
+    const query = `
+    SELECT
+        id, 
+        name,
+        description,
+        created_at,
+        updated_at
+    FROM knowledge_bases
+    WHERE workspace_id = $1
+    ORDER BY created_at DESC
+    `;
+
+    const values = [workspaceId];
+    const result = await pool.query(query, values);
+    return result.rows;
+}

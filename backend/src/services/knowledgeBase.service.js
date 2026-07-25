@@ -12,3 +12,15 @@ export async function createKnowledgeBase(knowledgeBaseData, authenticatedUser) 
     const knowledgeBase = await knowledgeBaseRepository.createKnowledgeBase(knowledgeBaseData);
     return knowledgeBase;
 }
+
+export async function getKnowledgeBasesByWorkspace(workspaceId, authenticatedUser) {
+    const validWorkspace = await workspaceService.getOwnedWorkspacebyId(
+        workspaceId,
+        authenticatedUser
+    )
+
+    const knowledgeBases = await knowledgeBaseRepository.getKnowledgeBasesByWorkspace(
+        workspaceId
+    )
+    return knowledgeBases;
+}
