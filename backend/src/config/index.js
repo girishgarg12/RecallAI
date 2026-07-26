@@ -37,7 +37,11 @@ const config = {
     jwt: {
         secret: process.env.JWT_SECRET,
         expiresIn: process.env.JWT_EXPIRES_IN
+    },
+    upload: {
+        maxFileSize: 50 * 1024 * 1024
     }
 };
+
 
 export default config;
