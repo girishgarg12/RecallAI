@@ -1,7 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import config from '.';
+import config from './index.js';
 import AppError from '../errors/AppError.js';
 
 const allowedExtensions = [

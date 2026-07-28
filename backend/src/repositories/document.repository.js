@@ -1,4 +1,4 @@
-import pool from '..database/connection.js';
+import pool from '../database/connection.js';
 
 export async function createDocument(documentData) {
     const { knowledgeBaseId, originalFilename, storageKey,
