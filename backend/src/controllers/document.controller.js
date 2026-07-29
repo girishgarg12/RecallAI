@@ -13,3 +13,14 @@ export async function uploadDocument(req, res) {
         document
     });
 }
+
+export async function deleteDocument(req, res) {
+    const { knowledgeBaseId } = req.params;
+    const { documentId } = req.params;
+    await documentService.deleteDocument(
+        knowledgeBaseId,
+        documentId,
+        req.user
+    );
+    return res.sendStatus(204);
+}

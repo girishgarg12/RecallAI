@@ -40,6 +40,9 @@ const config = {
     },
     upload: {
         maxFileSize: 50 * 1024 * 1024
+    },
+    storage: {
+        uploadDirectory: "uploads"
     }
 };
 

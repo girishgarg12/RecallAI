@@ -8,12 +8,12 @@ const router = express.Router();
 
 router.post("/:knowledgeBaseId/documents", authenticate,
     upload.single("document"),
-    (req, res, next) => {
-        console.log(req.file);
-        next();
-    },
     validateUploadDocument,
     documentController.uploadDocument
+);
+
+router.delete("/:knowledgeBaseId/documents/:documentId", authenticate,
+    documentController.deleteDocument
 );
 
 export default router;

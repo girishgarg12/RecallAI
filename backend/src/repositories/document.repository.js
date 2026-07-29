@@ -22,3 +22,31 @@ export async function createDocument(documentData) {
     const result = await pool.query(query, values);
     return result.rows[0];
 }
+
+export async function getDocumentById(documentId, knowledgeBaseId) {
+    const query = `
+    SELECT 
+        id,
+        knowledge_base_id,
+        original_filename,
+        storage_key,
+        mime_type,
+        file_size,
+        status
+    FROM documents
+    WHERE id = $1
+    AND knowledge_base_id = $2
+    `;
+    const values = [documentId, knowledgeBaseId];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+}
+
+export async function deleteDocument(documentId) {
+    const query = `
+    DELETE FROM documents
+    WHERE id = $1
+    `;
+    const values = [documentId];
+    const result = await pool.query(query, values);
+}
