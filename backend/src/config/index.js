@@ -43,6 +43,18 @@ const config = {
     },
     storage: {
         uploadDirectory: "uploads"
+    },
+    redis: {
+        host: process.env.REDIS_HOST,
+        port: Number(process.env.REDIS_PORT)
+    },
+    ai: {
+        chunkSize: 500,
+        chunkOverlap: 100
+    },
+    ollama: {
+        host: process.env.OLLAMA_HOST,
+        embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL
     }
 };
 

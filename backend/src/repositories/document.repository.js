@@ -23,7 +23,7 @@ export async function createDocument(documentData) {
     return result.rows[0];
 }
 
-export async function getDocumentById(documentId, knowledgeBaseId) {
+export async function getDocumentByIdAndKnowledgeBaseId(documentId, knowledgeBaseId) {
     const query = `
     SELECT 
         id,
@@ -38,6 +38,37 @@ export async function getDocumentById(documentId, knowledgeBaseId) {
     AND knowledge_base_id = $2
     `;
     const values = [documentId, knowledgeBaseId];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+}
+
+// used by workers
+export async function getDocumentById(documentId) {
+    const query = `
+    SELECT 
+        id,
+        knowledge_base_id,
+        original_filename,
+        storage_key,
+        mime_type,
+        file_size,
+        status
+    FROM documents
+    WHERE id = $1
+    `;
+    const values = [documentId];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+}
+
+export async function updateDocumentStatus(documentId, status){
+    const query = `
+    UPDATE documents
+    SET status = $2
+    WHERE id = $1
+    RETURNING *
+    `;
+    const values = [documentId, status];
     const result = await pool.query(query, values);
     return result.rows[0];
 }

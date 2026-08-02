@@ -8,8 +8,8 @@ export async function uploadDocument(req, res) {
         uploadedFile,
         req.user
     );
-    return res.status(201).json({
-        message : "Document uploaded successfully",
+    return res.status(202).json({
+        message: "Document accepted for processing",
         document
     });
 }
