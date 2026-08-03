@@ -8,6 +8,10 @@ import path from 'path';
 import AppError from '../errors/AppError.js';
 import documentQueue from '../queues/document.queue.js';
 import { resolve } from 'dns';
+import * as chunkingService from './chunking.service.js';
+import * as documentExtractionService from './documentExtraction.service.js';
+import * as embeddingService from './embedding.service.js';
+import * as documentChunkRepository from '../repositories/documentChunk.repository.js';
 
 export async function uploadDocument(knowledgeBaseId, file, authenticatedUser) {
     await knowledgeBaseService.getKnowledgeBaseById(
@@ -64,8 +68,23 @@ export async function processDocument(documentId) {
             documentId,
             DOCUMENT_STATUS.PROCESSING
         );
-        // TO do
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        const text = await documentExtractionService.extract(document);
+
+        const chunks = await chunkingService.chunk(text);
+
+        const embeddings = await embeddingService.embed(chunks);
+
+        const chunkRecords = chunks.map((content, index) => ({
+            chunkIndex: index,
+            content,
+            embedding: embeddings[index]
+        }));
+
+        await documentChunkRepository.saveChunksAndEmbeddings(
+            documentId,
+            chunkRecords
+        )
 
         await documentRepository.updateDocumentStatus(
             documentId,

@@ -1,18 +1,20 @@
 import IoRedis from "ioredis";
 import config from "../config/index.js";
 
-const connection = new IoRedis({
-    host : config.redis.host,
-    port : config.redis.port,
-    maxRetriesPerRequest: null
-});
+export function createRedisConnection(name) {
+    const connection = new IoRedis({
+        host: config.redis.host,
+        port: config.redis.port,
+        maxRetriesPerRequest: null
+    });
 
-connection.on("connect", () => {
-    console.log("Connected to Redis");
-});
+    connection.on("connect", () => {
+        console.log(`[${name}] Connected to Redis`);
+    });
 
-connection.on("error", (error) => {
-    console.log("Redis connection error:", error);
-});
+    connection.on("error", (error) => {
+        console.error(`[${name}] Redis Error`, error);
+    });
 
-export default connection;
+    return connection;
+}

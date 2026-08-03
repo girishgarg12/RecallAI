@@ -1,7 +1,9 @@
 import { Worker } from 'bullmq';
-import connection from '../queues/connection.js';
+import { createRedisConnection } from '../queues/connection.js';
 import { QUEUE_NAMES } from '../constants/queue.constants.js';
 import * as documentService from '../services/document.service.js';
+
+const connection = createRedisConnection("Worker");
 
 const worker = new Worker(
     QUEUE_NAMES.DOCUMENT_PROCESSING,
@@ -20,5 +22,6 @@ worker.on("completed", (job) => {
 worker.on("failed", (job, error) => {
     console.log(`Job ${job.id} failed:`, error.message);
 });
+
 
 export default worker;

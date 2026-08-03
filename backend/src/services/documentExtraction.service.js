@@ -3,7 +3,7 @@ import config from "../config/index.js";
 import { DOCUMENT_MIME_TYPES } from "../constants/document.constants.js";
 import path from 'path';
 import fs from "fs/promises";
-import pdfParse from 'pdf-parse';
+import { PDFParse } from "pdf-parse";
 
 export async function extract(document) {
     switch(document.mime_type){
@@ -22,6 +22,13 @@ async function extractPdf(document) {
     );
 
     const pdfBuffer = await fs.readFile(filepath);
-    const parsedPdf = await pdfParse(pdfBuffer);
-    return parsedPdf.text;
+    const parser = new PDFParse({
+        data: pdfBuffer
+    });
+
+    const result = await parser.getText();
+
+    await parser.destroy();
+
+    return result.text;
 }
