@@ -27,3 +27,22 @@ export async function saveChunksAndEmbeddings(documentId, chunkRecords) {
 
     await pool.query(query, values);
 }
+
+export async function findRelevantChunks(knowledgeBaseId, queryEmbedding, topK) {
+    const query = `
+    SELECT
+        dc.document_id,
+        dc.content,
+        dc.chunk_index,
+        dc.embedding <=> $1 as distance
+    FROM document_chunks dc
+    JOIN documents d
+        ON dc.document_id = d.id
+    WHERE d.knowledge_base_id = $2
+    ORDER BY distance
+    LIMIT $3
+    `;
+    const values = [JSON.stringify(queryEmbedding), knowledgeBaseId, topK];
+    const result = await pool.query(query, values);
+    return result.rows;
+}

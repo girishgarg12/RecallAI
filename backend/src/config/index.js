@@ -48,13 +48,15 @@ const config = {
         host: process.env.REDIS_HOST,
         port: Number(process.env.REDIS_PORT)
     },
-    ai: {
-        chunkSize: 500,
-        chunkOverlap: 100
-    },
     ollama: {
         host: process.env.OLLAMA_HOST,
         embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL
+    },
+    rag: {
+        chunkSize: 500,
+        chunkOverlap: 100,
+        minChunkLength: 100,    // 20% of chunkSize
+        topK: 5
     }
 };
 

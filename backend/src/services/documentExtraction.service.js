@@ -4,6 +4,7 @@ import { DOCUMENT_MIME_TYPES } from "../constants/document.constants.js";
 import path from 'path';
 import fs from "fs/promises";
 import { PDFParse } from "pdf-parse";
+import { normalizeText } from "../utils/text.util.js";
 
 export async function extract(document) {
     switch(document.mime_type){
@@ -30,5 +31,5 @@ async function extractPdf(document) {
 
     await parser.destroy();
 
-    return result.text;
+    return normalizeText(result.text);
 }
