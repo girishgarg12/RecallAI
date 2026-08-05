@@ -57,7 +57,16 @@ const config = {
         chunkOverlap: 100,
         minChunkLength: 100,    // 20% of chunkSize
         topK: 5
+    },
+    llm: {
+        provider: process.env.LLM_PROVIDER,
+
+        groq: {
+            apiKey: process.env.GROQ_API_KEY,
+            model: process.env.GROQ_MODEL
+        },
     }
+
 };
 
 

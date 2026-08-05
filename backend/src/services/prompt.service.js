@@ -8,26 +8,29 @@ Instructions:
 - If the answer is not present in the context, reply:
   "I couldn't find enough information in your knowledge base to answer that question."
 - Keep your answer clear and concise.
-`;
+`.trim();
 
 export function buildPrompt({ question, chunks }) {
     const context = chunks
-            .map(chunk => `
-    Document ${chunk.documentId} | Chunk ${chunk.chunkIndex}
+        .map(chunk => `
+Document ${chunk.documentId} | Chunk ${chunk.chunkIndex}
 
-    ${chunk.content}
-    `)
-            .join("\n");
+${chunk.content}
+`.trim())
+        .join("\n\n");
 
-        return `
-    ${SYSTEM_PROMPT}
+    const userPrompt = `
+Context:
 
-    Context:
-    ${context}
+${context}
 
-    Question:
-    ${question}
+Question:
 
-    Answer:
-    `.trim();
+${question}
+`.trim();
+
+    return {
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt
+    };
 }
