@@ -1,14 +1,14 @@
 import { Worker } from 'bullmq';
 import { createRedisConnection } from '../queues/connection.js';
 import { QUEUE_NAMES } from '../constants/queue.constants.js';
-import * as documentService from '../services/document.service.js';
+import * as documentProcessingService from "../services/processDoument.service.js";
 
 const connection = createRedisConnection("Worker");
 
 const worker = new Worker(
     QUEUE_NAMES.DOCUMENT_PROCESSING,
     async (job) => {
-        await documentService.processDocument(job.data.documentId);
+        await documentProcessingService.processDocument(job.data.documentId);
     },
     {
         connection
