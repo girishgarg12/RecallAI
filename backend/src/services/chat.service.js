@@ -5,7 +5,7 @@ import * as llmService from './llm.service.js';
 export async function askQuestion({
     knowledgeBaseId,
     question
-}) {
+}){
     const chunks = await retrievalService.retrieveRelevantChunks(
         knowledgeBaseId,
         question

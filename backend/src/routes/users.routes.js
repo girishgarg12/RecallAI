@@ -6,6 +6,7 @@ import {
     patchUser,
     deleteUser
 } from "../controllers/user.controller.js";
+
 import validatePatchUser from '../middleware/validatePatchUser.js';
 import authenticate from '../middleware/authenticate.js';
 const router = express.Router();
