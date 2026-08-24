@@ -11,6 +11,8 @@ import { validateLoginUser } from '../middleware/validateLoginUser.js';
 
 router.post("/login", validateLoginUser, authController.loginUser);
 
+router.post("/logout", authController.logout);
+
 router.post("/refresh", authController.refreshAccessToken);
 
 export default router;

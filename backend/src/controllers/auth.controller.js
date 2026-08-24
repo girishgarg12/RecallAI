@@ -25,6 +25,20 @@ export async function loginUser(req, res) {
     });
 }
 
+export async function logout(req, res) {
+    const { refreshToken } = req.cookies;
+
+    await authService.logout(refreshToken);
+
+    res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: config.env === "production",
+        sameSite: "strict"
+    });
+
+    return res.status(204).send();
+}
+
 export async function refreshAccessToken(req, res) {
     const { refreshToken } = req.cookies;
     const result = await authService.refreshAccessToken(refreshToken);

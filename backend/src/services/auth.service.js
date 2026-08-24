@@ -39,6 +39,14 @@ export async function loginUser(email, password) {
     return { user, accessToken, refreshToken };
 }
 
+export async function logout(refreshToken) {
+    if(!refreshToken) {
+        return;
+    }
+    const tokenHash = refreshTokenService.hashRefreshToken(refreshToken);
+    await refreshTokenService.revokeRefreshToken(tokenHash);
+}
+
 export async function refreshAccessToken(refreshToken) {
     if(!refreshToken) {
         throw new AppError("Refresh token is required", 401);
