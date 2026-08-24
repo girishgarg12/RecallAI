@@ -32,7 +32,7 @@ export async function revokeRefreshToken(tokenHash) {
     UPDATE refresh_tokens
     SET revoked_at = NOW()
     WHERE token_hash = $1
-        AND revoked_at id NULL
+        AND revoked_at IS NULL
     RETURNING *
     `;
     const values = [tokenHash];

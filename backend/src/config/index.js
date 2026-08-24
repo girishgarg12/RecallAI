@@ -26,6 +26,8 @@ if (rawPort !== undefined) {
 const config = {
     port,
 
+    env: process.env.NODE_ENV || "development",
+    
     database: {
         host: process.env.DB_HOST,
         port: Number(process.env.DB_PORT),
