@@ -24,4 +24,10 @@ router.delete("/:knowledgeBaseId/documents/:documentId", authenticate,
     documentController.deleteDocument
 );
 
+router.get(
+    "/:knowledgeBaseId/documents",
+    authenticate,
+    documentController.getDocuments
+);
+
 export default router;

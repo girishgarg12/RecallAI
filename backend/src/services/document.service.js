@@ -53,3 +53,15 @@ export async function deleteDocument(knowledgeBaseId, documentId, authenticatedU
     await documentRepository.deleteDocument(documentId);
 }
 
+export async function getDocuments(knowledgeBaseId, authenticatedUser) {
+
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    return await documentRepository.getDocumentsByKnowledgeBaseId(
+        knowledgeBaseId
+    );
+}
+

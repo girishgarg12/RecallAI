@@ -81,3 +81,25 @@ export async function deleteDocument(documentId) {
     const values = [documentId];
     const result = await pool.query(query, values);
 }
+
+export async function getDocumentsByKnowledgeBaseId(knowledgeBaseId) {
+    const query = `
+    SELECT 
+        id,
+        knowledge_base_id,
+        original_filename,
+        mime_type,
+        file_size,
+        status,
+        created_at,
+        updated_at
+    FROM documents
+    WHERE knowledge_base_id = $1
+    ORDER BY created_at DESC
+    `;
+
+    const values = [knowledgeBaseId];
+    const result = await pool.query(query, values);
+
+    return result.rows;
+}

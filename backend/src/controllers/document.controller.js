@@ -24,3 +24,17 @@ export async function deleteDocument(req, res) {
     );
     return res.sendStatus(204);
 }
+
+export async function getDocuments(req, res) {
+
+    const { knowledgeBaseId } = req.params;
+
+    const documents = await documentService.getDocuments(
+        knowledgeBaseId,
+        req.user
+    );
+
+    return res.status(200).json({
+        documents
+    });
+}
