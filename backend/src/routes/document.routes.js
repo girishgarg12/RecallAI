@@ -4,6 +4,7 @@ import authenticate from '../middleware/authenticate.js';
 import validateUploadDocument from '../middleware/validateUploadDocument.js';
 import validateAskQuestion from '../middleware/validateAskQuestion.js';
 import * as chatController from '../controllers/chat.controller.js';
+import validateUpdateDocument from '../middleware/validateUpdateDocument.js'
 import upload from '../config/multer.js';
 
 const router = express.Router();
@@ -29,5 +30,19 @@ router.get(
     authenticate,
     documentController.getDocuments
 );
+
+router.get(
+    "/:knowledgeBaseId/documents/:documentId",
+    authenticate,
+    documentController.getDocument
+);
+
+router.patch(
+    "/:knowledgeBaseId/documents/:documentId",
+    authenticate,
+    validateUpdateDocument,
+    documentController.updateDocument
+);
+
 
 export default router;

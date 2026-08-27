@@ -1,13 +1,14 @@
 import pool from '../database/connection.js';
 
 export async function createDocument(documentData) {
-    const { knowledgeBaseId, originalFilename, storageKey,
+    const { knowledgeBaseId, name, originalFilename, storageKey,
         mimeType, fileSize, status
     } = documentData;
 
     const query = `
     INSERT INTO documents (
         knowledge_base_id,
+        name,
         original_filename,
         storage_key,
         mime_type,
@@ -18,7 +19,7 @@ export async function createDocument(documentData) {
     RETURNING *;
     `;
 
-    const values = [knowledgeBaseId, originalFilename, storageKey, mimeType, fileSize, status];
+    const values = [knowledgeBaseId,name, originalFilename, storageKey, mimeType, fileSize, status];
     const result = await pool.query(query, values);
     return result.rows[0];
 }
@@ -28,6 +29,7 @@ export async function getDocumentByIdAndKnowledgeBaseId(documentId, knowledgeBas
     SELECT 
         id,
         knowledge_base_id,
+        name,
         original_filename,
         storage_key,
         mime_type,
@@ -86,6 +88,7 @@ export async function getDocumentsByKnowledgeBaseId(knowledgeBaseId) {
     const query = `
     SELECT 
         id,
+        name,
         knowledge_base_id,
         original_filename,
         mime_type,
@@ -102,4 +105,20 @@ export async function getDocumentsByKnowledgeBaseId(knowledgeBaseId) {
     const result = await pool.query(query, values);
 
     return result.rows;
+}
+
+export async function updateDocument(documentId, name) {
+    const query = `
+    UPDATE documents
+    SET name = $2,
+        updated_at = NOW()
+    WHERE id = $1
+    RETURNING *;
+    `;
+
+    const values = [documentId, name];
+
+    const result = await pool.query(query, values);
+
+    return result.rows[0];
 }

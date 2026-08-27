@@ -17,6 +17,7 @@ export async function uploadDocument(knowledgeBaseId, file, authenticatedUser) {
 
     const documentData = {
         knowledgeBaseId : knowledgeBaseId,
+        name : file.originalname,
         originalFilename : file.originalname,
         storageKey: file.filename,
         mimeType: file.mimetype,
@@ -65,3 +66,52 @@ export async function getDocuments(knowledgeBaseId, authenticatedUser) {
     );
 }
 
+export async function getDocument(
+    knowledgeBaseId,
+    documentId,
+    authenticatedUser
+) {
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    const document =
+        await documentRepository.getDocumentByIdAndKnowledgeBaseId(
+            documentId,
+            knowledgeBaseId
+        );
+
+    if (!document) {
+        throw new AppError("Document not found", 404);
+    }
+
+    return document;
+}
+
+export async function updateDocument(
+    knowledgeBaseId,
+    documentId,
+    name,
+    authenticatedUser
+) {
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    const document =
+        await documentRepository.getDocumentByIdAndKnowledgeBaseId(
+            documentId,
+            knowledgeBaseId
+        );
+
+    if (!document) {
+        throw new AppError("Document not found", 404);
+    }
+
+    return await documentRepository.updateDocument(
+        documentId,
+        name
+    );
+}

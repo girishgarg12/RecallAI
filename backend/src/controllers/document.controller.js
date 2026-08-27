@@ -38,3 +38,34 @@ export async function getDocuments(req, res) {
         documents
     });
 }
+
+export async function getDocument(req, res) {
+    const { knowledgeBaseId, documentId } = req.params;
+
+    const document = await documentService.getDocument(
+        knowledgeBaseId,
+        documentId,
+        req.user
+    );
+
+    return res.status(200).json({
+        document
+    });
+}
+
+export async function updateDocument(req, res) {
+    const { knowledgeBaseId, documentId } = req.params;
+    const { name } = req.body;
+
+    const document = await documentService.updateDocument(
+        knowledgeBaseId,
+        documentId,
+        name,
+        req.user
+    );
+
+    return res.status(200).json({
+        message: "Document updated successfully",
+        document
+    });
+}
