@@ -15,3 +15,17 @@ export async function createConversation(
         authenticatedUser.id
     );
 }
+
+export async function getConversations(
+    knowledgeBaseId,
+    authenticatedUser
+) {
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    return await conversationRepository.getConversationsByKnowledgeBaseId(
+        knowledgeBaseId
+    );
+}

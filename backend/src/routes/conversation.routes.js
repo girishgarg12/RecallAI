@@ -10,4 +10,10 @@ router.post(
     conversationController.createConversation
 );
 
+router.get(
+    "/:knowledgeBaseId/conversations",
+    authenticate,
+    conversationController.getConversations
+);
+
 export default router;
