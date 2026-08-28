@@ -61,7 +61,7 @@ async function executeMigration(file) {
 
         await pool.query("COMMIT");
         
-        console.log(`✅ Applied migration: ${file}`);
+        console.log(`Applied migration: ${file}`);
     } catch (error) {
         await pool.query("ROLLBACK");
         throw error;

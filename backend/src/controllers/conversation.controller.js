@@ -26,3 +26,17 @@ export async function getConversations(req, res) {
         conversations
     });
 }
+
+export async function getConversation(req, res) {
+    const { knowledgeBaseId, conversationId } = req.params;
+
+    const conversation = await conversationService.getConversation(
+        knowledgeBaseId,
+        conversationId,
+        req.user
+    );
+
+    return res.status(200).json({
+        conversation
+    });
+}

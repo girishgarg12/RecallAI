@@ -37,3 +37,27 @@ export async function getConversationsByKnowledgeBaseId(knowledgeBaseId) {
 
     return result.rows;
 }
+
+export async function getConversationByIdAndKnowledgeBaseId(
+    conversationId,
+    knowledgeBaseId
+) {
+    const query = `
+        SELECT
+            id,
+            knowledge_base_id,
+            user_id,
+            title,
+            created_at,
+            updated_at
+        FROM conversations
+        WHERE id = $1
+        AND knowledge_base_id = $2;
+    `;
+
+    const values = [conversationId, knowledgeBaseId];
+
+    const result = await pool.query(query, values);
+
+    return result.rows[0];
+}

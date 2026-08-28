@@ -16,4 +16,10 @@ router.get(
     conversationController.getConversations
 );
 
+router.get(
+    "/:knowledgeBaseId/conversations/:conversationId",
+    authenticate,
+    conversationController.getConversation
+);
+
 export default router;
