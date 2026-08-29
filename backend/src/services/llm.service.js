@@ -3,13 +3,15 @@ import config from "../config/index.js";
 
 export async function generate({
     systemPrompt,
-    userPrompt
+    userPrompt,
+    previousMessages = []
 }) {
     switch (config.llm.provider) {
         case "groq":
             return generateWithGroq({
                 systemPrompt,
-                userPrompt
+                userPrompt,
+                previousMessages
             });
 
         default:
@@ -19,11 +21,18 @@ export async function generate({
     }
 }
 
-
 async function generateWithGroq({
     systemPrompt,
-    userPrompt
+    userPrompt,
+    previousMessages
 }) {
+    const conversationMessages = previousMessages.map(message => ({
+        role: message.role === "USER"
+            ? "user"
+            : "assistant",
+        content: message.content
+    }));
+
     const response = await groqClient.chat.completions.create({
         model: config.llm.groq.model,
         messages: [
@@ -31,6 +40,9 @@ async function generateWithGroq({
                 role: "system",
                 content: systemPrompt
             },
+
+            ...conversationMessages,
+
             {
                 role: "user",
                 content: userPrompt

@@ -9,7 +9,7 @@ router.post(
     "/:knowledgeBaseId/conversations/:conversationId/messages",
     authenticate,
     validateCreateMessage,
-    messageController.createUserMessage
+    messageController.sendMessage
 );
 
 export default router;

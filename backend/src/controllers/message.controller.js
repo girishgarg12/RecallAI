@@ -1,17 +1,15 @@
 import * as messageService from "../services/message.service.js";
 
-export async function createUserMessage(req, res) {
+export async function sendMessage(req, res) {
     const { knowledgeBaseId, conversationId } = req.params;
     const { content } = req.body;
 
-    const message = await messageService.createUserMessage(
+    const result = await messageService.sendMessage(
         knowledgeBaseId,
         conversationId,
         content,
         req.user
     );
 
-    return res.status(201).json({
-        message
-    });
+    return res.status(201).json(result);
 }
