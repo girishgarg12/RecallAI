@@ -12,4 +12,10 @@ router.post(
     messageController.sendMessage
 );
 
+router.get(
+    "/:knowledgeBaseId/conversations/:conversationId/messages",
+    authenticate,
+    messageController.getMessages
+);
+
 export default router;

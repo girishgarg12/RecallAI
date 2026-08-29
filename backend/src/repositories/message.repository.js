@@ -45,3 +45,25 @@ export async function getRecentMessages(
 
     return result.rows.reverse();
 }
+
+export async function getMessagesByConversationId(
+    conversationId
+) {
+    const query = `
+        SELECT
+            id,
+            conversation_id,
+            role,
+            content,
+            created_at
+        FROM messages
+        WHERE conversation_id = $1
+        ORDER BY created_at ASC;
+    `;
+
+    const values = [conversationId];
+
+    const result = await pool.query(query, values);
+
+    return result.rows;
+}

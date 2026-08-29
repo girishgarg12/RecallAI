@@ -77,3 +77,28 @@ export async function sendMessage(
         sources: chunks
     };
 }
+
+export async function getMessages(
+    knowledgeBaseId,
+    conversationId,
+    authenticatedUser
+) {
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    const conversation =
+        await conversationRepository.getConversationByIdAndKnowledgeBaseId(
+            conversationId,
+            knowledgeBaseId
+        );
+
+    if (!conversation) {
+        throw new AppError("Conversation not found", 404);
+    }
+
+    return messageRepository.getMessagesByConversationId(
+        conversationId
+    );
+}
