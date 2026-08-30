@@ -53,3 +53,57 @@ export async function getConversation(
 
     return conversation;
 }
+
+export async function renameConversation(
+    knowledgeBaseId,
+    conversationId,
+    title,
+    authenticatedUser
+) {
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    const conversation =
+        await conversationRepository.getConversationByIdAndKnowledgeBaseId(
+            conversationId,
+            knowledgeBaseId
+        );
+
+    if (!conversation) {
+        throw new AppError("Conversation not found", 404);
+    }
+
+    return await conversationRepository.updateConversationTitle(
+        conversationId,
+        knowledgeBaseId,
+        title
+    );
+}
+
+export async function deleteConversation(
+    knowledgeBaseId,
+    conversationId,
+    authenticatedUser
+) {
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    const conversation =
+        await conversationRepository.getConversationByIdAndKnowledgeBaseId(
+            conversationId,
+            knowledgeBaseId
+        );
+
+    if (!conversation) {
+        throw new AppError("Conversation not found", 404);
+    }
+
+    await conversationRepository.deleteConversation(
+        conversationId,
+        knowledgeBaseId
+    );
+}

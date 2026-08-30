@@ -61,3 +61,51 @@ export async function getConversationByIdAndKnowledgeBaseId(
 
     return result.rows[0];
 }
+
+
+export async function updateConversationTitle(
+    conversationId,
+    knowledgeBaseId,
+    title
+) {
+    const query = `
+        UPDATE conversations
+        SET
+            title = $3,
+            updated_at = NOW()
+        WHERE id = $1
+        AND knowledge_base_id = $2
+        RETURNING *;
+    `;
+
+    const values = [
+        conversationId,
+        knowledgeBaseId,
+        title
+    ];
+
+    const result = await pool.query(query, values);
+
+    return result.rows[0];
+}
+
+export async function deleteConversation(
+    conversationId,
+    knowledgeBaseId
+) {
+    const query = `
+        DELETE FROM conversations
+        WHERE id = $1
+        AND knowledge_base_id = $2
+        RETURNING *;
+    `;
+
+    const values = [
+        conversationId,
+        knowledgeBaseId
+    ];
+
+    const result = await pool.query(query, values);
+
+    return result.rows[0];
+}

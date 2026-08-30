@@ -40,3 +40,32 @@ export async function getConversation(req, res) {
         conversation
     });
 }
+
+export async function renameConversation(req, res) {
+    const { knowledgeBaseId, conversationId } = req.params;
+    const { title } = req.body;
+
+    const conversation = await conversationService.renameConversation(
+        knowledgeBaseId,
+        conversationId,
+        title,
+        req.user
+    );
+
+    return res.status(200).json({
+        message: "Conversation renamed successfully",
+        conversation
+    });
+}
+
+export async function deleteConversation(req, res) {
+    const { knowledgeBaseId, conversationId } = req.params;
+
+    await conversationService.deleteConversation(
+        knowledgeBaseId,
+        conversationId,
+        req.user
+    );
+
+    return res.sendStatus(204);
+}

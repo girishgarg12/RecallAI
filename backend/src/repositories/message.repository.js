@@ -5,21 +5,46 @@ export async function createMessage(
     role,
     content
 ) {
-    const query = `
-        INSERT INTO messages (
-            conversation_id,
-            role,
-            content
-        )
-        VALUES ($1, $2, $3)
-        RETURNING *;
-    `;
+    const client = await pool.connect();
 
-    const values = [conversationId, role, content];
+    try {
+        await client.query("BEGIN");
 
-    const result = await pool.query(query, values);
+        const messageQuery = `
+            INSERT INTO messages (
+                conversation_id,
+                role,
+                content
+            )
+            VALUES ($1, $2, $3)
+            RETURNING *;
+        `;
 
-    return result.rows[0];
+        const messageResult = await client.query(
+            messageQuery,
+            [conversationId, role, content]
+        );
+
+        await client.query(
+            `
+            UPDATE conversations
+            SET updated_at = NOW()
+            WHERE id = $1;
+            `,
+            [conversationId]
+        );
+
+        await client.query("COMMIT");
+
+        return messageResult.rows[0];
+
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+
+    } finally {
+        client.release();
+    }
 }
 
 export async function getRecentMessages(
