@@ -26,6 +26,12 @@ router.get(
 );
 
 router.get(
+    "/:knowledgeBaseId/documents/:documentId/download",
+    authenticate,
+    documentController.downloadDocument
+);
+
+router.get(
     "/:knowledgeBaseId/documents/:documentId",
     authenticate,
     documentController.getDocument

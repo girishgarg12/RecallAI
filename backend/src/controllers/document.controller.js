@@ -69,3 +69,23 @@ export async function updateDocument(req, res) {
         document
     });
 }
+
+export async function downloadDocument(req, res) {
+    const { knowledgeBaseId, documentId } = req.params;
+
+    const document = await documentService.downloadDocument(
+        knowledgeBaseId,
+        documentId,
+        req.user
+    );
+
+    return res.download(
+        document.filepath,
+        document.originalFilename,
+        {
+            headers: {
+                "Content-Type": document.mimeType
+            }
+        }
+    );
+}

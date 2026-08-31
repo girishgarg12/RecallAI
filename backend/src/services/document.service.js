@@ -115,3 +115,42 @@ export async function updateDocument(
         name
     );
 }
+
+export async function downloadDocument(
+    knowledgeBaseId,
+    documentId,
+    authenticatedUser
+) {
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    const document =
+        await documentRepository.getDocumentByIdAndKnowledgeBaseId(
+            documentId,
+            knowledgeBaseId
+        );
+
+    if (!document) {
+        throw new AppError("Document not found", 404);
+    }
+
+    const filepath = path.join(
+        process.cwd(),
+        config.storage.uploadDirectory,
+        document.storage_key
+    );
+
+    try {
+        await fs.access(filepath);
+    } catch {
+        throw new AppError("Document file not found", 404);
+    }
+
+    return {
+        filepath,
+        originalFilename: document.original_filename,
+        mimeType: document.mime_type
+    };
+}
