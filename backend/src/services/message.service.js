@@ -1,17 +1,20 @@
 import * as messageRepository from "../repositories/message.repository.js";
 import * as conversationRepository from "../repositories/conversation.repository.js";
+import * as documentRepository from "../repositories/document.repository.js";
 import * as knowledgeBaseService from "./knowledgeBase.service.js";
 import * as retrievalService from "./retrieval.service.js";
 import * as promptService from "./prompt.service.js";
 import * as llmService from "./llm.service.js";
 import AppError from "../errors/AppError.js";
 
-export async function sendMessage(
+export async function sendMessage({
     knowledgeBaseId,
     conversationId,
     content,
+    scope,
+    sourceId,
     authenticatedUser
-) {
+}) {
     // 1. Verify user has access to the knowledge base
     await knowledgeBaseService.getKnowledgeBaseById(
         knowledgeBaseId,
@@ -29,14 +32,82 @@ export async function sendMessage(
         throw new AppError("Conversation not found", 404);
     }
 
-    // 3. Get previous 10 messages
+    // 3. Resolve retrieval scope
+    let retrievalScope;
+
+    if (!scope) {
+        if (!conversation.active_source_id) {
+            throw new AppError(
+                "No active source selected for this conversation",
+                400
+            );
+        }
+
+        retrievalScope = {
+            scope: "SOURCE",
+            sourceId: conversation.active_source_id
+        };
+    } else {
+        switch (scope) {
+            case "SOURCE": {
+                if (!sourceId) {
+                    throw new AppError(
+                        "sourceId is required for SOURCE scope",
+                        400
+                    );
+                }
+
+                const source =
+                    await documentRepository.getDocumentByIdAndConversationId(
+                        sourceId,
+                        conversationId
+                    );
+
+                if (!source) {
+                    throw new AppError(
+                        "Source not found in this conversation",
+                        404
+                    );
+                }
+
+                retrievalScope = {
+                    scope: "SOURCE",
+                    sourceId
+                };
+
+                break;
+            }
+
+            case "CONVERSATION":
+                retrievalScope = {
+                    scope: "CONVERSATION",
+                    conversationId
+                };
+                break;
+
+            case "KNOWLEDGE_BASE":
+                retrievalScope = {
+                    scope: "KNOWLEDGE_BASE",
+                    knowledgeBaseId
+                };
+                break;
+
+            default:
+                throw new AppError(
+                    "Invalid retrieval scope",
+                    400
+                );
+        }
+    }
+
+    // 4. Get previous 10 messages
     const previousMessages =
         await messageRepository.getRecentMessages(
             conversationId,
             10
         );
 
-    // 4. Save current user message
+    // 5. Save current user message
     const userMessage =
         await messageRepository.createMessage(
             conversationId,
@@ -44,26 +115,26 @@ export async function sendMessage(
             content
         );
 
-    // 5. Retrieve relevant chunks from the knowledge base
+    // 6. Retrieve relevant chunks using selected scope
     const chunks =
-        await retrievalService.retrieveRelevantChunks(
-            knowledgeBaseId,
-            content
-        );
+        await retrievalService.retrieveRelevantChunks({
+            scope: retrievalScope,
+            question: content
+        });
 
-    // 6. Build prompt
+    // 7. Build prompt
     const prompt = promptService.buildPrompt({
         question: content,
         chunks
     });
 
-    // 7. Generate answer using conversation history + RAG context
+    // 8. Generate answer using conversation history + RAG context
     const answer = await llmService.generate({
         ...prompt,
         previousMessages
     });
 
-    // 8. Save assistant message
+    // 9. Save assistant message
     const assistantMessage =
         await messageRepository.createMessage(
             conversationId,

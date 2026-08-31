@@ -129,6 +129,7 @@ export async function getDocumentById(documentId) {
     SELECT 
         id,
         knowledge_base_id,
+        conversation_id,
         original_filename,
         storage_key,
         mime_type,
@@ -154,6 +155,32 @@ export async function updateDocumentStatus(documentId, status){
     return result.rows[0];
 }
 
+export async function getDocumentByIdAndConversationId(
+    documentId,
+    conversationId
+) {
+    const query = `
+        SELECT
+            id,
+            knowledge_base_id,
+            conversation_id,
+            name,
+            original_filename,
+            mime_type,
+            file_size,
+            status
+        FROM documents
+        WHERE id = $1
+        AND conversation_id = $2;
+    `;
+
+    const values = [documentId, conversationId];
+
+    const result = await pool.query(query, values);
+
+    return result.rows[0];
+}
+
 export async function deleteDocument(documentId) {
     const query = `
     DELETE FROM documents
@@ -169,6 +196,7 @@ export async function getDocumentsByKnowledgeBaseId(knowledgeBaseId) {
         id,
         name,
         knowledge_base_id,
+        conversation_id,
         original_filename,
         mime_type,
         file_size,

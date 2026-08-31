@@ -88,6 +88,32 @@ export async function getConversationDocuments(
     );
 }
 
+export async function getDocumentByIdAndConversationId(
+    documentId,
+    conversationId
+) {
+    const query = `
+        SELECT
+            id,
+            knowledge_base_id,
+            conversation_id,
+            name,
+            original_filename,
+            mime_type,
+            file_size,
+            status
+        FROM documents
+        WHERE id = $1
+        AND conversation_id = $2;
+    `;
+
+    const values = [documentId, conversationId];
+
+    const result = await pool.query(query, values);
+
+    return result.rows[0];
+}
+
 export async function deleteDocument(knowledgeBaseId, documentId, authenticatedUser) {
 
     await knowledgeBaseService.getKnowledgeBaseById(

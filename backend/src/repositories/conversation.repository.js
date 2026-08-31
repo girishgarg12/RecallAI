@@ -48,6 +48,7 @@ export async function getConversationByIdAndKnowledgeBaseId(
             knowledge_base_id,
             user_id,
             title,
+            active_source_id,
             created_at,
             updated_at
         FROM conversations

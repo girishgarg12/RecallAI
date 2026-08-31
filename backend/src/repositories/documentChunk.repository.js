@@ -28,21 +28,57 @@ export async function saveChunksAndEmbeddings(documentId, chunkRecords) {
     await pool.query(query, values);
 }
 
-export async function findRelevantChunks(knowledgeBaseId, queryEmbedding, topK) {
+export async function findRelevantChunks(
+    scope,
+    queryEmbedding,
+    topK
+) {
+    let scopeCondition;
+    let scopeValue;
+
+    switch (scope.scope) {
+        case "SOURCE":
+            scopeCondition = "d.id = $2";
+            scopeValue = scope.sourceId;
+            break;
+
+        case "CONVERSATION":
+            scopeCondition = "d.conversation_id = $2";
+            scopeValue = scope.conversationId;
+            break;
+
+        case "KNOWLEDGE_BASE":
+            scopeCondition = "d.knowledge_base_id = $2";
+            scopeValue = scope.knowledgeBaseId;
+            break;
+
+        default:
+            throw new Error(
+                `Unsupported retrieval scope: ${scope.scope}`
+            );
+    }
+
     const query = `
-    SELECT
-        dc.document_id,
-        dc.content,
-        dc.chunk_index,
-        dc.embedding <=> $1 as distance
-    FROM document_chunks dc
-    JOIN documents d
-        ON dc.document_id = d.id
-    WHERE d.knowledge_base_id = $2
-    ORDER BY distance
-    LIMIT $3
+        SELECT
+            dc.document_id,
+            dc.content,
+            dc.chunk_index,
+            dc.embedding <=> $1 AS distance
+        FROM document_chunks dc
+        JOIN documents d
+            ON dc.document_id = d.id
+        WHERE ${scopeCondition}
+        ORDER BY distance
+        LIMIT $3
     `;
-    const values = [JSON.stringify(queryEmbedding), knowledgeBaseId, topK];
+
+    const values = [
+        JSON.stringify(queryEmbedding),
+        scopeValue,
+        topK
+    ];
+
     const result = await pool.query(query, values);
+
     return result.rows;
 }
