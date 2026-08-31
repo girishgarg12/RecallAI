@@ -1,16 +1,35 @@
 import * as documentService from '../services/document.service.js';
 
 export async function uploadDocument(req, res) {
-    const { knowledgeBaseId } = req.params;
+    const { knowledgeBaseId, conversationId } = req.params;
+
     const uploadedFile = req.file;
+
     const document = await documentService.uploadDocument(
         knowledgeBaseId,
+        conversationId,
         uploadedFile,
         req.user
     );
+
     return res.status(202).json({
         message: "Document accepted for processing",
         document
+    });
+}
+
+export async function getConversationDocuments(req, res) {
+    const { knowledgeBaseId, conversationId } = req.params;
+
+    const documents =
+        await documentService.getConversationDocuments(
+            knowledgeBaseId,
+            conversationId,
+            req.user
+        );
+
+    return res.status(200).json({
+        documents
     });
 }
 

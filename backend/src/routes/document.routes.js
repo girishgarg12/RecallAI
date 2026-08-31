@@ -8,7 +8,9 @@ import upload from '../config/multer.js';
 
 const router = express.Router();
 
-router.post("/:knowledgeBaseId/documents", authenticate,
+router.post(
+    "/:knowledgeBaseId/conversations/:conversationId/documents",
+    authenticate,
     upload.single("document"),
     validateUploadDocument,
     documentController.uploadDocument
@@ -17,6 +19,12 @@ router.post("/:knowledgeBaseId/documents", authenticate,
 
 router.delete("/:knowledgeBaseId/documents/:documentId", authenticate,
     documentController.deleteDocument
+);
+
+router.get(
+    "/:knowledgeBaseId/conversations/:conversationId/documents",
+    authenticate,
+    documentController.getConversationDocuments
 );
 
 router.get(

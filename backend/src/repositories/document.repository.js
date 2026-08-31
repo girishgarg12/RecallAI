@@ -1,27 +1,79 @@
 import pool from '../database/connection.js';
 
-export async function createDocument(documentData) {
-    const { knowledgeBaseId, name, originalFilename, storageKey,
-        mimeType, fileSize, status
-    } = documentData;
+export async function createDocumentAndSetActiveSource(documentData) {
+    const client = await pool.connect();
 
-    const query = `
-    INSERT INTO documents (
-        knowledge_base_id,
-        name,
-        original_filename,
-        storage_key,
-        mime_type,
-        file_size,
-        status
-    )
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING *;
-    `;
+    try {
+        await client.query("BEGIN");
 
-    const values = [knowledgeBaseId,name, originalFilename, storageKey, mimeType, fileSize, status];
-    const result = await pool.query(query, values);
-    return result.rows[0];
+        const {
+            knowledgeBaseId,
+            conversationId,
+            name,
+            originalFilename,
+            storageKey,
+            mimeType,
+            fileSize,
+            status
+        } = documentData;
+
+        const documentQuery = `
+            INSERT INTO documents (
+                knowledge_base_id,
+                conversation_id,
+                name,
+                original_filename,
+                storage_key,
+                mime_type,
+                file_size,
+                status
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *;
+        `;
+
+        const documentValues = [
+            knowledgeBaseId,
+            conversationId,
+            name,
+            originalFilename,
+            storageKey,
+            mimeType,
+            fileSize,
+            status
+        ];
+
+        const documentResult =
+            await client.query(
+                documentQuery,
+                documentValues
+            );
+
+        const document = documentResult.rows[0];
+
+        const conversationQuery = `
+            UPDATE conversations
+            SET active_source_id = $1,
+                updated_at = NOW()
+            WHERE id = $2;
+        `;
+
+        await client.query(
+            conversationQuery,
+            [document.id, conversationId]
+        );
+
+        await client.query("COMMIT");
+
+        return document;
+
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+
+    } finally {
+        client.release();
+    }
 }
 
 export async function getDocumentByIdAndKnowledgeBaseId(documentId, knowledgeBaseId) {
@@ -42,6 +94,33 @@ export async function getDocumentByIdAndKnowledgeBaseId(documentId, knowledgeBas
     const values = [documentId, knowledgeBaseId];
     const result = await pool.query(query, values);
     return result.rows[0];
+}
+
+export async function getDocumentsByConversationId(
+    conversationId
+) {
+    const query = `
+        SELECT
+            id,
+            knowledge_base_id,
+            conversation_id,
+            name,
+            original_filename,
+            mime_type,
+            file_size,
+            status,
+            created_at,
+            updated_at
+        FROM documents
+        WHERE conversation_id = $1
+        ORDER BY created_at DESC;
+    `;
+
+    const values = [conversationId];
+
+    const result = await pool.query(query, values);
+
+    return result.rows;
 }
 
 // used by workers
