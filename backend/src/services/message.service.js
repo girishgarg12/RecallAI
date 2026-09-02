@@ -2,6 +2,7 @@ import * as messageRepository from "../repositories/message.repository.js";
 import * as conversationRepository from "../repositories/conversation.repository.js";
 import * as documentRepository from "../repositories/document.repository.js";
 import * as knowledgeBaseService from "./knowledgeBase.service.js";
+import * as queryPlannerService from "../services/queryPlanner.service.js";
 import * as retrievalService from "./retrieval.service.js";
 import * as promptService from "./prompt.service.js";
 import * as llmService from "./llm.service.js";
@@ -15,13 +16,13 @@ export async function sendMessage({
     sourceId,
     authenticatedUser
 }) {
-    // 1. Verify user has access to the knowledge base
+    
     await knowledgeBaseService.getKnowledgeBaseById(
         knowledgeBaseId,
         authenticatedUser
     );
 
-    // 2. Verify conversation belongs to this knowledge base
+    
     const conversation =
         await conversationRepository.getConversationByIdAndKnowledgeBaseId(
             conversationId,
@@ -32,7 +33,7 @@ export async function sendMessage({
         throw new AppError("Conversation not found", 404);
     }
 
-    // 3. Resolve retrieval scope
+    
     let retrievalScope;
 
     if (!scope) {
@@ -100,14 +101,20 @@ export async function sendMessage({
         }
     }
 
-    // 4. Get previous 10 messages
+    
     const previousMessages =
         await messageRepository.getRecentMessages(
             conversationId,
             10
         );
 
-    // 5. Save current user message
+    const retrievalPlan = await queryPlannerService.planRetrieval({
+        question: content,
+        previousMessages
+    });
+
+    console.log("Retrieval plan:", retrievalPlan);
+    
     const userMessage =
         await messageRepository.createMessage(
             conversationId,
@@ -115,26 +122,26 @@ export async function sendMessage({
             content
         );
 
-    // 6. Retrieve relevant chunks using selected scope
+    
     const chunks =
         await retrievalService.retrieveRelevantChunks({
             scope: retrievalScope,
             question: content
         });
 
-    // 7. Build prompt
+    
     const prompt = promptService.buildPrompt({
         question: content,
         chunks
     });
 
-    // 8. Generate answer using conversation history + RAG context
+    
     const answer = await llmService.generate({
         ...prompt,
         previousMessages
     });
 
-    // 9. Save assistant message
+    
     const assistantMessage =
         await messageRepository.createMessage(
             conversationId,

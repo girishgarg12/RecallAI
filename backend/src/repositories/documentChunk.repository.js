@@ -28,7 +28,7 @@ export async function saveChunksAndEmbeddings(documentId, chunkRecords) {
     await pool.query(query, values);
 }
 
-export async function findRelevantChunks(
+export async function findRelevantChunks(      // does similarity comparison
     scope,
     queryEmbedding,
     topK
@@ -77,6 +77,51 @@ export async function findRelevantChunks(
         scopeValue,
         topK
     ];
+
+    const result = await pool.query(query, values);
+
+    return result.rows;
+}
+
+export async function getChunksByScope(scope) {      // Provide all Chunks
+    let scopeCondition;
+    let scopeValue;
+
+    switch (scope.scope) {
+        case "SOURCE":
+            scopeCondition = "d.id = $1";
+            scopeValue = scope.sourceId;
+            break;
+
+        case "CONVERSATION":
+            scopeCondition = "d.conversation_id = $1";
+            scopeValue = scope.conversationId;
+            break;
+
+        case "KNOWLEDGE_BASE":
+            scopeCondition = "d.knowledge_base_id = $1";
+            scopeValue = scope.knowledgeBaseId;
+            break;
+
+        default:
+            throw new Error(
+                `Unsupported retrieval scope: ${scope.scope}`
+            );
+    }
+
+    const query = `
+        SELECT
+            dc.document_id,
+            dc.chunk_index,
+            dc.content
+        FROM document_chunks dc
+        JOIN documents d
+            ON dc.document_id = d.id
+        WHERE ${scopeCondition}
+        ORDER BY d.id, dc.chunk_index;
+    `;
+
+    const values = [scopeValue];
 
     const result = await pool.query(query, values);
 

@@ -22,3 +22,14 @@ export async function retrieveRelevantChunks({
         content: chunk.content
     }));
 }
+
+export async function retrieveAllChunks({ scope }) {
+    const chunks =
+        await documentChunkRepository.getChunksByScope(scope);
+
+    return chunks.map(chunk => ({
+        documentId: chunk.document_id,
+        chunkIndex: chunk.chunk_index,
+        content: chunk.content
+    }));
+}

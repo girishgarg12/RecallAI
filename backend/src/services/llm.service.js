@@ -9,6 +9,7 @@ export async function generate({
     switch (config.llm.provider) {
         case "groq":
             return generateWithGroq({
+                model: config.llm.groq.generationModel,
                 systemPrompt,
                 userPrompt,
                 previousMessages
@@ -21,10 +22,49 @@ export async function generate({
     }
 }
 
+export async function summarize({
+    systemPrompt,
+    userPrompt
+}) {
+    switch (config.llm.provider) {
+        case "groq":
+            return generateWithGroq({
+                model: config.llm.groq.summarizerModel,
+                systemPrompt,
+                userPrompt
+            });
+
+        default:
+            throw new Error(
+                `Unsupported LLM provider: ${config.llm.provider}`
+            );
+    }
+}
+
+export async function plan({
+    systemPrompt,
+    userPrompt
+}) {
+    switch (config.llm.provider) {
+        case "groq":
+            return generateWithGroq({
+                model: config.llm.groq.plannerModel,
+                systemPrompt,
+                userPrompt
+            });
+
+        default:
+            throw new Error(
+                `Unsupported LLM provider: ${config.llm.provider}`
+            );
+    }
+}
+
 async function generateWithGroq({
+    model,
     systemPrompt,
     userPrompt,
-    previousMessages
+    previousMessages = []
 }) {
     const conversationMessages = previousMessages.map(message => ({
         role: message.role === "USER"
@@ -34,7 +74,7 @@ async function generateWithGroq({
     }));
 
     const response = await groqClient.chat.completions.create({
-        model: config.llm.groq.model,
+        model,
         messages: [
             {
                 role: "system",

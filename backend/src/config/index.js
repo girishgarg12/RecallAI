@@ -65,8 +65,10 @@ const config = {
 
         groq: {
             apiKey: process.env.GROQ_API_KEY,
-            model: process.env.GROQ_MODEL
-        },
+            generationModel: process.env.GROQ_GENERATION_MODEL,
+            summarizerModel: process.env.GROQ_SUMMARIZER_MODEL,
+            plannerModel: process.env.GROQ_PLANNER_MODEL
+        }
     }
 
 };
