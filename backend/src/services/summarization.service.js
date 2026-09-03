@@ -1,5 +1,6 @@
 import * as llmService from "./llm.service.js";
 import { createTokenBatches } from "../utils/tokenBatcher.js";
+import config from "../config/index.js";
 
 const SUMMARIZER_SYSTEM_PROMPT = `
 You are a document summarization assistant.
@@ -20,7 +21,10 @@ Return only the summary.
 `;
 
 export async function summarizeChunks(chunks) {
-    const batches = createTokenBatches(chunks, 4000);
+    const batches = createTokenBatches(
+        chunks,
+        config.summarization.batchTokenLimit
+    );
 
     const summaries = [];
 
@@ -51,31 +55,49 @@ export async function reduceSummaries(summaries) {
         return summaries[0];
     }
 
-    const combinedSummaries = summaries
-        .map((summary, index) =>
-            `[Summary ${index + 1}]\n${summary}`
-        )
-        .join("\n\n");
+    const summaryChunks = summaries.map((summary, index) => ({
+        chunkIndex: index,
+        content: summary
+    }));
 
-    const systemPrompt = `
-You are consolidating summaries of a document.
+    const batches = createTokenBatches(
+        summaryChunks,
+        config.summarization.batchTokenLimit
+    );
 
-Combine the provided partial summaries into one coherent summary
-representing the entire source.
+    const reducedSummaries = [];
 
-Requirements:
-- Preserve important facts and concepts.
-- Preserve important relationships between ideas.
-- Remove unnecessary repetition.
-- Do not invent information.
-- Do not omit important information simply to make the summary shorter.
-- Return only the consolidated summary.
-`;
+    for (const batch of batches) {
+        const combinedSummaries = batch
+            .map(item =>
+                `[Summary ${item.chunkIndex + 1}]\n${item.content}`
+            )
+            .join("\n\n");
 
-    return llmService.summarize({
-        systemPrompt,
-        userPrompt: combinedSummaries
-    });
+        const systemPrompt = `
+        You are consolidating summaries of a document or collection of documents.
+
+        Combine the provided summaries into one coherent summary.
+
+        Requirements:
+        - Preserve important facts and concepts.
+        - Preserve important relationships between ideas.
+        - Remove unnecessary repetition.
+        - Do not invent information.
+        - Do not incorrectly merge unrelated information.
+        - Do not omit important information simply to make the summary shorter.
+        - Return only the consolidated summary.
+        `;
+
+        const reducedSummary = await llmService.summarize({
+            systemPrompt,
+            userPrompt: combinedSummaries
+        });
+
+        reducedSummaries.push(reducedSummary);
+    }
+
+    return reduceSummaries(reducedSummaries);
 }
 
 function groupChunksByDocument(chunks) {

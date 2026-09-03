@@ -60,6 +60,11 @@ const config = {
         minChunkLength: 100,    // 20% of chunkSize
         topK: 5
     },
+    
+    summarization: {
+        batchTokenLimit: 4000
+    },
+
     llm: {
         provider: process.env.LLM_PROVIDER,
 
