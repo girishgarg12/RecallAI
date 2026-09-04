@@ -229,3 +229,22 @@ export async function updateDocument(documentId, name) {
 
     return result.rows[0];
 }
+
+export async function getDocumentsByIds(documentIds) {
+    if (documentIds.length === 0) {
+        return [];
+    }
+
+    const query = `
+        SELECT
+            id,
+            name
+        FROM documents
+        WHERE id = ANY($1::int[])
+        ORDER BY id;
+    `;
+
+    const result = await pool.query(query, [documentIds]);
+
+    return result.rows;
+}

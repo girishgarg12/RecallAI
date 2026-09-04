@@ -17,7 +17,7 @@ export async function sendMessage({
     sourceId,
     authenticatedUser
 }) {
-    
+
     await knowledgeBaseService.getKnowledgeBaseById(
         knowledgeBaseId,
         authenticatedUser
@@ -169,7 +169,6 @@ export async function sendMessage({
         previousMessages
     });
 
-    
     const assistantMessage =
         await messageRepository.createMessage(
             conversationId,
@@ -177,10 +176,19 @@ export async function sendMessage({
             answer
         );
 
+    const documentIds = [
+        ...new Set(
+            chunks.map(chunk => chunk.documentId)
+        )
+    ];
+
+    const sources =
+        await documentRepository.getDocumentsByIds(documentIds);
+
     return {
         userMessage,
         assistantMessage,
-        sources: chunks
+        sources
     };
 }
 
