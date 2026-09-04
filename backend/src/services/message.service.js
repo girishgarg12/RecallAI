@@ -2,6 +2,7 @@ import * as messageRepository from "../repositories/message.repository.js";
 import * as conversationRepository from "../repositories/conversation.repository.js";
 import * as documentRepository from "../repositories/document.repository.js";
 import * as knowledgeBaseService from "./knowledgeBase.service.js";
+import * as summarizationService from "../services/summarization.service.js";
 import * as queryPlannerService from "../services/queryPlanner.service.js";
 import * as retrievalService from "./retrieval.service.js";
 import * as promptService from "./prompt.service.js";
@@ -123,16 +124,43 @@ export async function sendMessage({
         );
 
     
-    const chunks =
-        await retrievalService.retrieveRelevantChunks({
+    let chunks;
+    let generationContext;
+
+    if (retrievalPlan.mode === "TARGETED") {
+        chunks = await retrievalService.retrieveRelevantChunks({
             scope: retrievalScope,
             question: content
         });
 
-    
+        generationContext = chunks;
+    } else {
+        const allChunks = await retrievalService.retrieveAllChunks({
+            scope: retrievalScope
+        });
+
+        const documentSummaries =
+            await summarizationService.summarizeDocuments(allChunks);
+
+        const summary =
+            await summarizationService.combineDocumentSummaries(
+                documentSummaries
+            );
+
+        generationContext = [
+            {
+                documentId: null,
+                chunkIndex: null,
+                content: summary
+            }
+        ];
+
+        chunks = allChunks;
+    }
+
     const prompt = promptService.buildPrompt({
         question: content,
-        chunks
+        chunks: generationContext
     });
 
     
