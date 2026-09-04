@@ -55,7 +55,7 @@ const config = {
         embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL
     },
     rag: {
-        chunkSize: 500,
+        chunkSize: 1200,
         chunkOverlap: 100,
         minChunkLength: 100,    // 20% of chunkSize
         topK: 5
