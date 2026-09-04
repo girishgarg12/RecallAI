@@ -17,6 +17,7 @@ export async function sendMessage({
     sourceId,
     authenticatedUser
 }) {
+    const requestStart = Date.now();
 
     await knowledgeBaseService.getKnowledgeBaseById(
         knowledgeBaseId,
@@ -109,10 +110,16 @@ export async function sendMessage({
             10
         );
 
+    const plannerStart = Date.now();
+
     const retrievalPlan = await queryPlannerService.planRetrieval({
         question: content,
         previousMessages
     });
+
+    console.log(
+        `[Planner] ${(Date.now() - plannerStart) / 1000}s`
+    );
 
     console.log("Retrieval plan:", retrievalPlan);
     
@@ -128,10 +135,19 @@ export async function sendMessage({
     let generationContext;
 
     if (retrievalPlan.mode === "TARGETED") {
-        chunks = await retrievalService.retrieveRelevantChunks({
-            scope: retrievalScope,
-            question: content
-        });
+        const retrievalStart = Date.now();
+
+        const chunks =
+            await retrievalService.retrieveRelevantChunks({
+                scope: retrievalScope,
+                question: content
+            });
+
+        console.log(
+            `[Retrieval] ${(Date.now() - retrievalStart) / 1000}s`
+        );
+
+        console.log(`[Retrieval] ${chunks.length} chunks`);
 
         generationContext = chunks;
     } else {
@@ -164,10 +180,16 @@ export async function sendMessage({
     });
 
     
+    const generationStart = Date.now();
+
     const answer = await llmService.generate({
         ...prompt,
         previousMessages
     });
+
+    console.log(
+        `[Final Generation] ${(Date.now() - generationStart) / 1000}s`
+    );
 
     const assistantMessage =
         await messageRepository.createMessage(

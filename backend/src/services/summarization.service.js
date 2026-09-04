@@ -28,7 +28,17 @@ export async function summarizeChunks(chunks) {
 
     const summaries = [];
 
-    for (const batch of batches) {
+    console.log(
+        `[Map Summarization] ${batches.length} batches`
+    );
+
+    const mapStart = Date.now();
+
+    for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+
+        const batchStart = Date.now();
+
         const content = batch
             .map(chunk =>
                 `[Chunk ${chunk.chunkIndex}]\n${chunk.content}`
@@ -41,12 +51,27 @@ export async function summarizeChunks(chunks) {
         });
 
         summaries.push(summary);
+
+        console.log(
+            `[Map] Batch ${i + 1}/${batches.length} → ` +
+            `${(Date.now() - batchStart) / 1000}s`
+        );
     }
+
+    console.log(
+        `[Map Total] ${(Date.now() - mapStart) / 1000}s`
+    );
 
     return summaries;
 }
 
 export async function reduceSummaries(summaries) {
+    const reduceStart = Date.now();
+
+    console.log(
+        `[Reduce] Starting with ${summaries.length} summaries`
+    );
+
     if (summaries.length === 0) {
         return "";
     }
@@ -65,9 +90,17 @@ export async function reduceSummaries(summaries) {
         config.summarization.batchTokenLimit
     );
 
+    console.log(
+        `[Reduce] Created ${batches.length} batches`
+    );
+
     const reducedSummaries = [];
 
-    for (const batch of batches) {
+    for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+
+        const batchStart = Date.now();
+
         const combinedSummaries = batch
             .map(item =>
                 `[Summary ${item.chunkIndex + 1}]\n${item.content}`
@@ -75,27 +108,35 @@ export async function reduceSummaries(summaries) {
             .join("\n\n");
 
         const systemPrompt = `
-        You are consolidating summaries of a document or collection of documents.
+    You are consolidating summaries of a document or collection of documents.
 
-        Combine the provided summaries into one coherent summary.
+    Combine the provided summaries into one coherent summary.
 
-        Requirements:
-        - Preserve important facts and concepts.
-        - Preserve important relationships between ideas.
-        - Remove unnecessary repetition.
-        - Do not invent information.
-        - Do not incorrectly merge unrelated information.
-        - Do not omit important information simply to make the summary shorter.
-        - Return only the consolidated summary.
-        `;
+    Requirements:
+    - Preserve important facts and concepts.
+    - Preserve important relationships between ideas.
+    - Remove unnecessary repetition.
+    - Do not invent information.
+    - Do not incorrectly merge unrelated information.
+    - Do not omit important information simply to make the summary shorter.
+    - Return only the consolidated summary.
+    `;
 
         const reducedSummary = await llmService.summarize({
             systemPrompt,
             userPrompt: combinedSummaries
         });
 
+        console.log(
+            `[Reduce] Batch ${i + 1}/${batches.length} → ` +
+            `${(Date.now() - batchStart) / 1000}s`
+        );
+
         reducedSummaries.push(reducedSummary);
     }
+    console.log(
+        `[Reduce Total] ${(Date.now() - reduceStart) / 1000}s`
+    );
 
     return reduceSummaries(reducedSummaries);
 }
