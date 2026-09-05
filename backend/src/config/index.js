@@ -62,7 +62,9 @@ const config = {
     },
     
     summarization: {
-        batchTokenLimit: 4000
+        provider: process.env.SUMMARIZER_PROVIDER,
+        batchTokenLimit: 4000,
+        geminiBatchTokenLimit: 200000
     },
 
     llm: {

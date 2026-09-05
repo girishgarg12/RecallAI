@@ -27,11 +27,26 @@ export async function summarize({
     systemPrompt,
     userPrompt
 }) {
-    return generateWithGemini({
-        model: config.llm.gemini.summarizerModel,
-        systemPrompt,
-        userPrompt
-    });
+    switch (config.summarization.provider) {
+        case "groq":
+            return generateWithGroq({
+                model: config.llm.groq.summarizerModel,
+                systemPrompt,
+                userPrompt
+            });
+
+        case "gemini":
+            return generateWithGemini({
+                model: config.llm.gemini.summarizerModel,
+                systemPrompt,
+                userPrompt
+            });
+
+        default:
+            throw new Error(
+                `Unsupported summarizer provider: ${config.summarization.provider}`
+            );
+    }
 }
 
 export async function plan({

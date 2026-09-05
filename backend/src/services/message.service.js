@@ -137,7 +137,7 @@ export async function sendMessage({
     if (retrievalPlan.mode === "TARGETED") {
         const retrievalStart = Date.now();
 
-        const chunks =
+        chunks =
             await retrievalService.retrieveRelevantChunks({
                 scope: retrievalScope,
                 question: content
