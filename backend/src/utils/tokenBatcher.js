@@ -6,10 +6,7 @@ export function estimateTokens(text) {
     return Math.ceil(text.length / 4);
 }
 
-export function createTokenBatches(
-    chunks,
-    maxTokens
-) {
+export function createTokenBatches(chunks, maxTokens) {
     const batches = [];
     let currentBatch = [];
     let currentTokens = 0;
@@ -17,8 +14,6 @@ export function createTokenBatches(
     for (const chunk of chunks) {
         const chunkTokens = estimateTokens(chunk.content);
 
-        // A single chunk is larger than the limit.
-        // It still needs to be processed as its own batch.
         if (
             currentBatch.length > 0 &&
             currentTokens + chunkTokens > maxTokens
@@ -36,6 +31,28 @@ export function createTokenBatches(
     if (currentBatch.length > 0) {
         batches.push(currentBatch);
     }
+
+    console.log(
+        `[Token Batching] max=${maxTokens} tokens | ` +
+        `batches=${batches.length}`
+    );
+
+    batches.forEach((batch, index) => {
+        const estimatedTokens = batch.reduce(
+            (total, chunk) =>
+                total + estimateTokens(chunk.content),
+            0
+        );
+
+        console.log(
+            `[Batch ${index + 1}] ` +
+            `chunks=${batch.length} | ` +
+            `estimatedTokens=${estimatedTokens} | ` +
+            `utilization=${(
+                estimatedTokens / maxTokens * 100
+            ).toFixed(1)}%`
+        );
+    });
 
     return batches;
 }

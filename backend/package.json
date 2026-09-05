@@ -13,6 +13,7 @@
   "author": "Girish Garg",
   "license": "ISC",
   "dependencies": {
+    "@google/genai": "^2.21.0",
     "@langchain/textsplitters": "^1.0.1",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.81.3",

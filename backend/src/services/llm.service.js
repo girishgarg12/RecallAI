@@ -1,5 +1,6 @@
 import groqClient from "../clients/groq.client.js";
 import config from "../config/index.js";
+import geminiClient from "../clients/gemini.client.js";
 
 export async function generate({
     systemPrompt,
@@ -26,19 +27,11 @@ export async function summarize({
     systemPrompt,
     userPrompt
 }) {
-    switch (config.llm.provider) {
-        case "groq":
-            return generateWithGroq({
-                model: config.llm.groq.summarizerModel,
-                systemPrompt,
-                userPrompt
-            });
-
-        default:
-            throw new Error(
-                `Unsupported LLM provider: ${config.llm.provider}`
-            );
-    }
+    return generateWithGemini({
+        model: config.llm.gemini.summarizerModel,
+        systemPrompt,
+        userPrompt
+    });
 }
 
 export async function plan({
@@ -91,4 +84,20 @@ async function generateWithGroq({
     });
 
     return response.choices[0].message.content;
+}
+
+async function generateWithGemini({
+    model,
+    systemPrompt,
+    userPrompt
+}) {
+    const response = await geminiClient.models.generateContent({
+        model,
+        config: {
+            systemInstruction: systemPrompt
+        },
+        contents: userPrompt
+    });
+
+    return response.text;
 }
