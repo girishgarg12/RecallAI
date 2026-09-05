@@ -1,6 +1,7 @@
 import * as llmService from "./llm.service.js";
 import { createTokenBatches } from "../utils/tokenBatcher.js";
 import config from "../config/index.js";
+import { mapWithConcurrency } from "../utils/concurrency.js";
 
 const SUMMARIZER_SYSTEM_PROMPT = `
 You are a document summarization assistant.
@@ -26,37 +27,41 @@ export async function summarizeChunks(chunks) {
         config.summarization.batchTokenLimit
     );
 
-    const summaries = [];
-
     console.log(
         `[Map Summarization] ${batches.length} batches`
     );
 
+    if (batches.length === 0) {
+        return [];
+    }
+
     const mapStart = Date.now();
 
-    for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
+    const summaries = await mapWithConcurrency(
+        batches,
+        2,
+        async (batch, index) => {
+            const batchStart = Date.now();
 
-        const batchStart = Date.now();
+            const content = batch
+                .map(chunk =>
+                    `[Chunk ${chunk.chunkIndex}]\n${chunk.content}`
+                )
+                .join("\n\n");
 
-        const content = batch
-            .map(chunk =>
-                `[Chunk ${chunk.chunkIndex}]\n${chunk.content}`
-            )
-            .join("\n\n");
+            const summary = await llmService.summarize({
+                systemPrompt: SUMMARIZER_SYSTEM_PROMPT,
+                userPrompt: content
+            });
 
-        const summary = await llmService.summarize({
-            systemPrompt: SUMMARIZER_SYSTEM_PROMPT,
-            userPrompt: content
-        });
+            console.log(
+                `[Map] Batch ${index + 1}/${batches.length} → ` +
+                `${(Date.now() - batchStart) / 1000}s`
+            );
 
-        summaries.push(summary);
-
-        console.log(
-            `[Map] Batch ${i + 1}/${batches.length} → ` +
-            `${(Date.now() - batchStart) / 1000}s`
-        );
-    }
+            return summary;
+        }
+    );
 
     console.log(
         `[Map Total] ${(Date.now() - mapStart) / 1000}s`
