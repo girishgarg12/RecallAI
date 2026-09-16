@@ -163,6 +163,10 @@ export async function sendMessage({
                 documentSummaries
             );
 
+        console.log("\n========== CONSOLIDATED GEMINI SUMMARY ==========");
+        console.log(summary);
+        console.log("==================================================\n");
+
         generationContext = [
             {
                 documentId: null,

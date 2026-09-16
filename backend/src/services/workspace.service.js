@@ -12,9 +12,9 @@ export async function createWorkspace(workspaceData, authenticatedUser){
     return result;
 }
 
-export async function getOwnedWorkspace(authenticatedUser) {
+export async function getOwnedWorkspaces(authenticatedUser) {
     const ownerId = authenticatedUser.id;
-    const workspaces = await workspaceRepository.getOwnedWorkspace(ownerId);
+    const workspaces = await workspaceRepository.getOwnedWorkspaces(ownerId);
     return workspaces;
 }
 

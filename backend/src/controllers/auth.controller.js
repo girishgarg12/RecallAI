@@ -2,8 +2,12 @@ import * as authService from '../services/auth.service.js';
 import config from '../config/index.js';
 
 export async function registerUser(req, res) {
+    const { name, email, password } = req.body;
+    const savedUser = await authService.registerUser(name, email, password);
+    const { password_hash, ...userWithoutPassword } = savedUser;
     return res.status(201).json(userWithoutPassword);
 }
+
 
 export async function loginUser(req, res) {
     const { email, password } = req.body;
