@@ -1,12 +1,5 @@
 /**
- * KnowledgeBasePage
- *
- * Shows:
- * - Knowledge base details
- * - All documents in this KB (GET /knowledge-bases/:kbId/documents)
- * - List of conversations (GET /knowledge-bases/:kbId/conversations)
- * - Upload document button (linked to a conversation)
- * - Create new conversation button
+ * KnowledgeBasePage — shows documents and conversations for a knowledge base.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -17,6 +10,11 @@ import * as workspaceService from '../services/workspace.service.js';
 import * as documentService from '../services/document.service.js';
 import * as conversationService from '../services/conversation.service.js';
 import DocumentStatusBadge from '../components/DocumentStatusBadge.jsx';
+import ContextMenu from '../components/common/ContextMenu.jsx';
+import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal.jsx';
+import RenameModal from '../components/common/RenameModal.jsx';
+
+const TERMINAL_STATUSES = ['READY', 'FAILED'];
 
 export default function KnowledgeBasePage() {
   const { workspaceId, knowledgeBaseId } = useParams();
@@ -29,7 +27,13 @@ export default function KnowledgeBasePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isCreatingConv, setIsCreatingConv] = useState(false);
-  const [activeTab, setActiveTab] = useState('conversations'); // 'conversations' | 'documents'
+  const [activeTab, setActiveTab] = useState('conversations');
+
+  // CRUD modal state
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [renameType, setRenameType] = useState(null); // 'conversation' | 'document'
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteType, setDeleteType] = useState(null); // 'conversation' | 'document'
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -56,6 +60,25 @@ export default function KnowledgeBasePage() {
     load();
   }, [load]);
 
+  // Document status polling
+  useEffect(() => {
+    const hasNonTerminal = documents.some((d) => !TERMINAL_STATUSES.includes(d.status));
+    if (!hasNonTerminal || isLoading) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const docsData = await documentService.getDocuments(knowledgeBaseId);
+        const updated = docsData?.documents || [];
+        setDocuments(updated);
+        if (updated.every((d) => TERMINAL_STATUSES.includes(d.status))) {
+          clearInterval(interval);
+        }
+      } catch { /* silent */ }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [documents, isLoading, knowledgeBaseId]);
+
   async function handleCreateConversation() {
     setIsCreatingConv(true);
     try {
@@ -69,8 +92,45 @@ export default function KnowledgeBasePage() {
     }
   }
 
+  // CRUD handlers
+  async function handleRename(newName) {
+    if (renameType === 'conversation') {
+      const result = await conversationService.renameConversation(knowledgeBaseId, renameTarget.id, newName);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === renameTarget.id ? { ...c, ...result.conversation } : c))
+      );
+    } else if (renameType === 'document') {
+      const result = await documentService.updateDocument(knowledgeBaseId, renameTarget.id, newName);
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === renameTarget.id ? { ...d, ...result.document } : d))
+      );
+    }
+    setRenameTarget(null);
+    setRenameType(null);
+  }
+
+  async function handleDelete() {
+    if (deleteType === 'conversation') {
+      await conversationService.deleteConversation(knowledgeBaseId, deleteTarget.id);
+      setConversations((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+    } else if (deleteType === 'document') {
+      await documentService.deleteDocument(knowledgeBaseId, deleteTarget.id);
+      setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+    }
+    setDeleteTarget(null);
+    setDeleteType(null);
+  }
+
+  async function handleDownload(doc) {
+    try {
+      await documentService.downloadDocument(knowledgeBaseId, doc.id, doc.name || doc.original_filename);
+    } catch {
+      setError('Failed to download document.');
+    }
+  }
+
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/dashboard' },
+    { label: 'Workspaces', href: '/dashboard' },
     { label: workspace?.name || 'Workspace', href: `/workspaces/${workspaceId}` },
     { label: kb?.name || 'Knowledge Base' },
   ];
@@ -82,16 +142,16 @@ export default function KnowledgeBasePage() {
         <div className="min-w-0">
           {isLoading ? (
             <>
-              <div className="skeleton h-6 w-56 mb-2" />
-              <div className="skeleton h-4 w-72" />
+              <div className="skeleton h-5 w-56 mb-2" />
+              <div className="skeleton h-3 w-72" />
             </>
           ) : (
             <>
-              <h1 className="text-2xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+              <h1 className="text-xl font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                 {kb?.name}
               </h1>
               {kb?.description && (
-                <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                   {kb.description}
                 </p>
               )}
@@ -103,10 +163,10 @@ export default function KnowledgeBasePage() {
           id="create-conversation-btn"
           onClick={handleCreateConversation}
           disabled={isLoading || isCreatingConv}
-          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white cursor-pointer transition-all disabled:opacity-50"
-          style={{ backgroundColor: 'var(--purple-600)' }}
-          onMouseEnter={(e) => !(isLoading || isCreatingConv) && (e.currentTarget.style.backgroundColor = 'var(--purple-700)')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--purple-600)')}
+          className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded text-sm font-medium text-white cursor-pointer disabled:opacity-50"
+          style={{ backgroundColor: 'var(--accent)' }}
+          onMouseEnter={(e) => !(isLoading || isCreatingConv) && (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--accent)')}
         >
           {isCreatingConv ? (
             <span className="flex items-center gap-2">
@@ -115,7 +175,7 @@ export default function KnowledgeBasePage() {
             </span>
           ) : (
             <>
-              <span className="text-lg leading-none">+</span>
+              <span className="text-base leading-none">+</span>
               New Conversation
             </>
           )}
@@ -125,11 +185,11 @@ export default function KnowledgeBasePage() {
       {/* Error */}
       {error && (
         <div
-          className="mb-6 text-sm px-4 py-3 rounded-lg border"
+          className="mb-6 text-sm px-4 py-3 rounded border"
           style={{
             color: 'var(--status-error)',
-            backgroundColor: 'rgba(239,68,68,0.08)',
-            borderColor: 'rgba(239,68,68,0.2)',
+            backgroundColor: 'rgba(239,68,68,0.07)',
+            borderColor: 'rgba(239,68,68,0.18)',
           }}
         >
           {error}
@@ -143,10 +203,10 @@ export default function KnowledgeBasePage() {
             key={tab}
             id={`tab-${tab}`}
             onClick={() => setActiveTab(tab)}
-            className="pb-3 px-1 text-sm font-medium capitalize border-b-2 transition-colors cursor-pointer"
+            className="pb-3 px-1 text-sm font-medium capitalize border-b-2 cursor-pointer"
             style={{
-              color: activeTab === tab ? 'var(--purple-400)' : 'var(--text-secondary)',
-              borderColor: activeTab === tab ? 'var(--purple-500)' : 'transparent',
+              color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-secondary)',
+              borderColor: activeTab === tab ? 'var(--accent)' : 'transparent',
               marginBottom: '-1px',
             }}
           >
@@ -175,6 +235,8 @@ export default function KnowledgeBasePage() {
           knowledgeBaseId={knowledgeBaseId}
           onCreateConversation={handleCreateConversation}
           isCreating={isCreatingConv}
+          onRename={(conv) => { setRenameTarget(conv); setRenameType('conversation'); }}
+          onDelete={(conv) => { setDeleteTarget(conv); setDeleteType('conversation'); }}
         />
       )}
 
@@ -182,22 +244,43 @@ export default function KnowledgeBasePage() {
         <DocumentsTab
           documents={documents}
           isLoading={isLoading}
-          knowledgeBaseId={knowledgeBaseId}
-          onRefresh={load}
+          onRename={(doc) => { setRenameTarget(doc); setRenameType('document'); }}
+          onDelete={(doc) => { setDeleteTarget(doc); setDeleteType('document'); }}
+          onDownload={handleDownload}
+        />
+      )}
+
+      {/* Rename modal */}
+      {renameTarget && (
+        <RenameModal
+          title={renameType === 'conversation' ? 'Rename Conversation' : 'Rename Document'}
+          currentName={renameTarget.name || renameTarget.title || renameTarget.original_filename || ''}
+          onRename={handleRename}
+          onClose={() => { setRenameTarget(null); setRenameType(null); }}
+        />
+      )}
+
+      {/* Delete modal */}
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          title={deleteType === 'conversation' ? 'Delete Conversation' : 'Delete Document'}
+          message={`Are you sure you want to delete "${deleteTarget.name || deleteTarget.title || deleteTarget.original_filename}"? This action cannot be undone.`}
+          onConfirm={handleDelete}
+          onClose={() => { setDeleteTarget(null); setDeleteType(null); }}
         />
       )}
     </AppLayout>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────
 
-function ConversationsTab({ conversations, isLoading, workspaceId, knowledgeBaseId, onCreateConversation, isCreating }) {
+function ConversationsTab({ conversations, isLoading, workspaceId, knowledgeBaseId, onCreateConversation, isCreating, onRename, onDelete }) {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-lg p-4 border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}>
+          <div key={i} className="rounded border p-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}>
             <div className="skeleton h-4 w-48 mb-2" />
             <div className="skeleton h-3 w-24" />
           </div>
@@ -209,14 +292,14 @@ function ConversationsTab({ conversations, isLoading, workspaceId, knowledgeBase
   if (conversations.length === 0) {
     return (
       <div
-        className="text-center py-16 rounded-xl border"
+        className="text-center py-16 rounded border"
         style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}
       >
         <div
-          className="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center"
-          style={{ backgroundColor: 'var(--bg-elevated)' }}
+          className="w-10 h-10 rounded mx-auto mb-4 flex items-center justify-center"
+          style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
         </div>
@@ -227,8 +310,8 @@ function ConversationsTab({ conversations, isLoading, workspaceId, knowledgeBase
         <button
           onClick={onCreateConversation}
           disabled={isCreating}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-white cursor-pointer disabled:opacity-50"
-          style={{ backgroundColor: 'var(--purple-600)' }}
+          className="px-3.5 py-2 rounded text-sm font-medium text-white cursor-pointer disabled:opacity-50"
+          style={{ backgroundColor: 'var(--accent)' }}
         >
           {isCreating ? 'Creating…' : 'New conversation'}
         </button>
@@ -242,21 +325,21 @@ function ConversationsTab({ conversations, isLoading, workspaceId, knowledgeBase
         <Link
           key={conv.id}
           to={`/workspaces/${workspaceId}/knowledge-bases/${knowledgeBaseId}/conversations/${conv.id}`}
-          className="flex items-center justify-between p-4 rounded-lg border transition-all animate-slide-in"
+          className="flex items-center justify-between p-4 rounded border animate-slide-in"
           style={{
             backgroundColor: 'var(--bg-surface)',
             borderColor: 'var(--border-default)',
             textDecoration: 'none',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--purple-600)')}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')}
           onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-default)')}
         >
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              style={{ backgroundColor: 'var(--bg-elevated)' }}
+              className="w-8 h-8 rounded flex items-center justify-center shrink-0"
+              style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--purple-400)' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-secondary)' }}>
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
             </div>
@@ -271,21 +354,29 @@ function ConversationsTab({ conversations, isLoading, workspaceId, knowledgeBase
               </p>
             </div>
           </div>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
-            <path d="M9 18l6-6-6-6" />
-          </svg>
+          <div className="flex items-center gap-2 shrink-0">
+            <ContextMenu
+              items={[
+                { label: 'Rename', onClick: () => onRename(conv) },
+                { label: 'Delete', onClick: () => onDelete(conv), danger: true },
+              ]}
+            />
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </div>
         </Link>
       ))}
     </div>
   );
 }
 
-function DocumentsTab({ documents, isLoading, knowledgeBaseId, onRefresh }) {
+function DocumentsTab({ documents, isLoading, onRename, onDelete, onDownload }) {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
         {[1, 2].map((i) => (
-          <div key={i} className="rounded-lg p-4 border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}>
+          <div key={i} className="rounded border p-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}>
             <div className="skeleton h-4 w-56 mb-2" />
             <div className="skeleton h-3 w-32" />
           </div>
@@ -297,12 +388,12 @@ function DocumentsTab({ documents, isLoading, knowledgeBaseId, onRefresh }) {
   if (documents.length === 0) {
     return (
       <div
-        className="text-center py-16 rounded-xl border"
+        className="text-center py-16 rounded border"
         style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}
       >
         <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>No documents uploaded</p>
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          Documents are uploaded within conversations. Open a conversation and upload a file to start.
+          Documents are uploaded within conversations.
         </p>
       </div>
     );
@@ -313,7 +404,7 @@ function DocumentsTab({ documents, isLoading, knowledgeBaseId, onRefresh }) {
       {documents.map((doc) => (
         <div
           key={doc.id}
-          className="flex items-center justify-between p-4 rounded-lg border animate-slide-in"
+          className="flex items-center justify-between p-4 rounded border animate-slide-in"
           style={{
             backgroundColor: 'var(--bg-surface)',
             borderColor: 'var(--border-default)',
@@ -321,10 +412,10 @@ function DocumentsTab({ documents, isLoading, knowledgeBaseId, onRefresh }) {
         >
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              style={{ backgroundColor: 'var(--bg-elevated)' }}
+              className="w-8 h-8 rounded flex items-center justify-center shrink-0"
+              style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
               </svg>
@@ -334,11 +425,20 @@ function DocumentsTab({ documents, isLoading, knowledgeBaseId, onRefresh }) {
                 {doc.name || doc.original_filename}
               </p>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                {doc.mime_type} · {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : ''}
+                {doc.mime_type}{doc.file_size ? ` · ${(doc.file_size / 1024).toFixed(1)} KB` : ''}
               </p>
             </div>
           </div>
-          <DocumentStatusBadge status={doc.status} />
+          <div className="flex items-center gap-2 shrink-0">
+            <DocumentStatusBadge status={doc.status} />
+            <ContextMenu
+              items={[
+                { label: 'Rename', onClick: () => onRename(doc) },
+                ...(doc.status === 'READY' ? [{ label: 'Download', onClick: () => onDownload(doc) }] : []),
+                { label: 'Delete', onClick: () => onDelete(doc), danger: true },
+              ]}
+            />
+          </div>
         </div>
       ))}
     </div>

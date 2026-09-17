@@ -52,7 +52,7 @@ export default function DocumentStatusBadge({ status }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md ${config.className}`}
+      className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded ${config.className}`}
     >
       {config.icon}
       {config.label}

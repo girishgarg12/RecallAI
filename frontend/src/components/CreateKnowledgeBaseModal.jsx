@@ -1,6 +1,5 @@
 /**
  * CreateKnowledgeBaseModal
- * POST /knowledge-bases → { name, description?, workspaceId (integer) }
  */
 
 import { useState } from 'react';
@@ -23,7 +22,7 @@ export default function CreateKnowledgeBaseModal({ workspaceId, onClose, onCreat
     try {
       const payload = {
         name: form.name.trim(),
-        workspaceId: Number(workspaceId), // backend expects number
+        workspaceId: Number(workspaceId),
       };
       if (form.description.trim()) payload.description = form.description.trim();
       const newKb = await knowledgeBaseService.createKnowledgeBase(payload);
@@ -44,23 +43,23 @@ export default function CreateKnowledgeBaseModal({ workspaceId, onClose, onCreat
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-md rounded-xl border p-6 animate-fade-in"
+        className="w-full max-w-md rounded border p-6 animate-fade-in"
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderColor: 'var(--border-strong)',
         }}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
             New Knowledge Base
           </h2>
           <button
             onClick={onClose}
-            className="text-lg leading-none cursor-pointer transition-colors"
+            className="text-xl leading-none cursor-pointer"
             style={{ color: 'var(--text-muted)' }}
             onMouseEnter={(e) => (e.target.style.color = 'var(--text-primary)')}
             onMouseLeave={(e) => (e.target.style.color = 'var(--text-muted)')}
@@ -82,9 +81,9 @@ export default function CreateKnowledgeBaseModal({ workspaceId, onClose, onCreat
               onChange={handleChange}
               required
               placeholder="Product Documentation"
-              className="w-full px-3 py-2.5 rounded-lg text-sm border focus:outline-none"
+              className="w-full px-3 py-2.5 rounded text-sm border focus:outline-none"
               style={inputStyle}
-              onFocus={(e) => (e.target.style.borderColor = 'var(--purple-500)')}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--accent)')}
               onBlur={(e) => (e.target.style.borderColor = 'var(--border-default)')}
             />
           </div>
@@ -99,21 +98,21 @@ export default function CreateKnowledgeBaseModal({ workspaceId, onClose, onCreat
               value={form.description}
               onChange={handleChange}
               rows={2}
-              placeholder="Describe what documents this knowledge base will contain."
-              className="w-full px-3 py-2.5 rounded-lg text-sm border focus:outline-none resize-none"
+              placeholder="What documents will this knowledge base contain?"
+              className="w-full px-3 py-2.5 rounded text-sm border focus:outline-none resize-none"
               style={inputStyle}
-              onFocus={(e) => (e.target.style.borderColor = 'var(--purple-500)')}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--accent)')}
               onBlur={(e) => (e.target.style.borderColor = 'var(--border-default)')}
             />
           </div>
 
           {error && (
             <div
-              className="text-sm px-3 py-2 rounded-lg border"
+              className="text-sm px-3 py-2 rounded border"
               style={{
                 color: 'var(--status-error)',
-                backgroundColor: 'rgba(239,68,68,0.08)',
-                borderColor: 'rgba(239,68,68,0.2)',
+                backgroundColor: 'rgba(239,68,68,0.07)',
+                borderColor: 'rgba(239,68,68,0.18)',
               }}
             >
               {error}
@@ -124,22 +123,24 @@ export default function CreateKnowledgeBaseModal({ workspaceId, onClose, onCreat
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors"
+              className="flex-1 py-2.5 rounded text-sm font-medium border cursor-pointer"
               style={{
                 color: 'var(--text-secondary)',
                 borderColor: 'var(--border-default)',
                 backgroundColor: 'transparent',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-default)')}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !form.name.trim()}
-              className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer transition-all disabled:opacity-60"
-              style={{ backgroundColor: 'var(--purple-600)' }}
-              onMouseEnter={(e) => !isSubmitting && (e.currentTarget.style.backgroundColor = 'var(--purple-700)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--purple-600)')}
+              className="flex-1 py-2.5 rounded text-sm font-medium text-white cursor-pointer disabled:opacity-50"
+              style={{ backgroundColor: 'var(--accent)' }}
+              onMouseEnter={(e) => !isSubmitting && (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--accent)')}
             >
               {isSubmitting ? 'Creating…' : 'Create'}
             </button>

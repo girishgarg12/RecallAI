@@ -7,10 +7,16 @@
  * Token storage strategy:
  *  - Access token: sessionStorage (cleared when tab/browser closes)
  *  - Refresh token: httpOnly cookie (managed by backend, not accessible to JS)
+ *  - User info: localStorage (persists across tabs for session restoration)
  *
  * On app mount, attempts to restore session via /auth/refresh using the
  * refresh token cookie. If the cookie is valid, a new access token is
  * issued silently. If not, the user stays logged out.
+ *
+ * The backend's /auth/refresh endpoint only returns { accessToken }, not user
+ * info. To support cross-tab session restore, the non-sensitive user object
+ * (id, name, email, role) is cached in localStorage during login and restored
+ * on successful refresh. Access tokens are NEVER stored in localStorage.
  */
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -26,26 +32,32 @@ export function AuthProvider({ children }) {
   // ── Restore session on mount ──────────────────────────────
   useEffect(() => {
     const restore = async () => {
-      const storedUser = sessionStorage.getItem('user');
+      // First check sessionStorage (same-tab fast path)
       const storedToken = sessionStorage.getItem('accessToken');
+      const sessionUser = sessionStorage.getItem('user');
 
-      if (storedUser && storedToken) {
-        setUser(JSON.parse(storedUser));
+      if (storedToken && sessionUser) {
+        setUser(JSON.parse(sessionUser));
         setIsLoading(false);
         return;
       }
 
-      // Try silent refresh using the httpOnly cookie
+      // Try silent refresh using the httpOnly cookie (works cross-tab)
       try {
         const { data } = await apiClient.post('/auth/refresh', {}, { withCredentials: true });
         sessionStorage.setItem('accessToken', data.accessToken);
-        // We don't have user info from refresh — need to call /users/me or rely on stored user
-        // Backend /auth/refresh only returns { accessToken }, not user object.
-        // If we have stored user, use it; otherwise session stays null until explicit login.
-        const cachedUser = sessionStorage.getItem('user');
+
+        // Restore user from localStorage (cross-tab), or sessionStorage
+        const cachedUser = sessionUser || localStorage.getItem('recallai_user');
         if (cachedUser) {
-          setUser(JSON.parse(cachedUser));
+          const parsed = JSON.parse(cachedUser);
+          setUser(parsed);
+          // Ensure sessionStorage is in sync for this tab
+          sessionStorage.setItem('user', cachedUser);
         }
+        // If no cached user at all, the refresh token was valid but we have
+        // no user info. The user will see the dashboard but with null user
+        // data — login() will fix this.
       } catch {
         // No valid refresh token — user is not authenticated
         sessionStorage.removeItem('accessToken');
@@ -70,6 +82,8 @@ export function AuthProvider({ children }) {
     // data = { user: { id, name, email, role }, accessToken }
     sessionStorage.setItem('accessToken', data.accessToken);
     sessionStorage.setItem('user', JSON.stringify(data.user));
+    // Cache user (non-sensitive) in localStorage for cross-tab restore
+    localStorage.setItem('recallai_user', JSON.stringify(data.user));
     setUser(data.user);
     return data;
   }, []);
@@ -83,6 +97,7 @@ export function AuthProvider({ children }) {
     } finally {
       sessionStorage.removeItem('accessToken');
       sessionStorage.removeItem('user');
+      localStorage.removeItem('recallai_user');
       setUser(null);
     }
   }, []);

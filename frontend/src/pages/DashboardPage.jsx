@@ -8,6 +8,9 @@ import AppLayout from '../layouts/AppLayout.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import * as workspaceService from '../services/workspace.service.js';
 import CreateWorkspaceModal from '../components/CreateWorkspaceModal.jsx';
+import ContextMenu from '../components/common/ContextMenu.jsx';
+import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal.jsx';
+import RenameModal from '../components/common/RenameModal.jsx';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -15,6 +18,10 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+
+  // CRUD modal state
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     loadWorkspaces();
@@ -36,6 +43,20 @@ export default function DashboardPage() {
   function handleWorkspaceCreated(newWorkspace) {
     setWorkspaces((prev) => [newWorkspace, ...prev]);
     setShowCreate(false);
+  }
+
+  async function handleRename(newName) {
+    const updated = await workspaceService.updateWorkspace(renameTarget.id, { name: newName });
+    setWorkspaces((prev) =>
+      prev.map((ws) => (ws.id === renameTarget.id ? { ...ws, ...updated } : ws))
+    );
+    setRenameTarget(null);
+  }
+
+  async function handleDelete() {
+    await workspaceService.deleteWorkspace(deleteTarget.id);
+    setWorkspaces((prev) => prev.filter((ws) => ws.id !== deleteTarget.id));
+    setDeleteTarget(null);
   }
 
   return (
@@ -161,16 +182,24 @@ export default function DashboardPage() {
                     <polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
                 </div>
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded font-mono"
-                  style={{
-                    color: 'var(--text-muted)',
-                    backgroundColor: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  {ws.visibility || 'PRIVATE'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded font-mono"
+                    style={{
+                      color: 'var(--text-muted)',
+                      backgroundColor: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    {ws.visibility || 'PRIVATE'}
+                  </span>
+                  <ContextMenu
+                    items={[
+                      { label: 'Rename', onClick: () => setRenameTarget(ws) },
+                      { label: 'Delete', onClick: () => setDeleteTarget(ws), danger: true },
+                    ]}
+                  />
+                </div>
               </div>
 
               <p className="font-medium text-sm mb-1" style={{ color: 'var(--text-primary)' }}>
@@ -197,6 +226,24 @@ export default function DashboardPage() {
         <CreateWorkspaceModal
           onClose={() => setShowCreate(false)}
           onCreated={handleWorkspaceCreated}
+        />
+      )}
+
+      {renameTarget && (
+        <RenameModal
+          title="Rename Workspace"
+          currentName={renameTarget.name}
+          onRename={handleRename}
+          onClose={() => setRenameTarget(null)}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          title="Delete Workspace"
+          message={`Are you sure you want to delete "${deleteTarget.name}"? This will also delete all knowledge bases, documents, and conversations within it.`}
+          onConfirm={handleDelete}
+          onClose={() => setDeleteTarget(null)}
         />
       )}
     </AppLayout>

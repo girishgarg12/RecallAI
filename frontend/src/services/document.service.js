@@ -76,7 +76,19 @@ export async function deleteDocument(knowledgeBaseId, documentId) {
   );
 }
 
-export function getDocumentDownloadUrl(knowledgeBaseId, documentId) {
-  const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-  return `${base}/knowledge-bases/${knowledgeBaseId}/documents/${documentId}/download`;
+export async function downloadDocument(knowledgeBaseId, documentId, fileName) {
+  const response = await apiClient.get(
+    `/knowledge-bases/${knowledgeBaseId}/documents/${documentId}/download`,
+    { responseType: 'blob' }
+  );
+
+  // Trigger browser download
+  const url = window.URL.createObjectURL(response.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName || 'document';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
 }
