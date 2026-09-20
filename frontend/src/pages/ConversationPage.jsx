@@ -1,28 +1,54 @@
 /**
- * ConversationPage — the main RAG chat interface.
+ * ConversationPage — ChatGPT-style conversation interface matching Prototype Image 2.
+ *
+ * Layout:
+ *  - Header: Breadcrumb, Title with rename pencil, Share button, More actions
+ *  - Main chat message stream
+ *  - Slide-over SourcesPanel on right
+ *  - Composer at bottom with scope selector & file upload
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import AppLayout from '../layouts/AppLayout.jsx';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as conversationService from '../services/conversation.service.js';
 import * as messageService from '../services/message.service.js';
 import * as documentService from '../services/document.service.js';
 import * as workspaceService from '../services/workspace.service.js';
 import * as knowledgeBaseService from '../services/knowledgeBase.service.js';
-import DocumentStatusBadge from '../components/DocumentStatusBadge.jsx';
+import MessageBubble from '../components/chat/MessageBubble.jsx';
+import Composer from '../components/chat/Composer.jsx';
+import SourcesPanel from '../components/chat/SourcesPanel.jsx';
+import AddSourceModal from '../components/sources/AddSourceModal.jsx';
 import ContextMenu from '../components/common/ContextMenu.jsx';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal.jsx';
 import RenameModal from '../components/common/RenameModal.jsx';
+import { addRecentConversation, removeRecentConversation } from '../utils/recentConversations.js';
 
-const SCOPES = [
-  { value: 'KNOWLEDGE_BASE', label: 'Knowledge Base', description: 'Search all documents in this KB' },
-  { value: 'CONVERSATION', label: 'Conversation', description: 'Search documents in this conversation' },
-  { value: 'SOURCE', label: 'Single Source', description: 'Search one specific document' },
-];
+const TERMINAL_STATUSES = ['READY', 'FAILED'];
+
+function EditPencilIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
+  );
+}
 
 export default function ConversationPage() {
   const { workspaceId, knowledgeBaseId, conversationId } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [workspace, setWorkspace] = useState(null);
   const [kb, setKb] = useState(null);
@@ -32,7 +58,7 @@ export default function ConversationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Chat state
+  // Chat input & sending state
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState('');
@@ -41,17 +67,20 @@ export default function ConversationPage() {
   const [scope, setScope] = useState('KNOWLEDGE_BASE');
   const [selectedSourceId, setSelectedSourceId] = useState('');
 
-  // Upload state
+  // Sources drawer state
+  const [sourcesPanelOpen, setSourcesPanelOpen] = useState(false);
+  const [focusedSources, setFocusedSources] = useState(null);
+
+  // Modals & UI state
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [shareToast, setShareToast] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const fileInputRef = useRef(null);
+
   const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
 
-  // Document CRUD state
-  const [docRenameTarget, setDocRenameTarget] = useState(null);
-  const [docDeleteTarget, setDocDeleteTarget] = useState(null);
-
+  // Load conversation data
   const load = useCallback(async () => {
     setIsLoading(true);
     setError('');
@@ -65,25 +94,60 @@ export default function ConversationPage() {
       ]);
       setWorkspace(wsData);
       setKb(kbData);
-      setConversation(convData?.conversation);
+      const conv = convData?.conversation;
+      setConversation(conv);
       setMessages(msgsData?.messages || []);
-      setDocuments(docsData?.documents || []);
+      const docs = docsData?.documents || [];
+      setDocuments(docs);
+
+      // Record in recent conversations
+      if (conv) {
+        addRecentConversation({
+          conversationId,
+          knowledgeBaseId,
+          workspaceId,
+          title: conv.title || `Conversation #${conversationId}`,
+        });
+      }
+
+      // Initialize selectedSourceId
+      if (conv?.active_source_id) {
+        setSelectedSourceId(String(conv.active_source_id));
+      } else {
+        const firstReady = docs.find((d) => d.status === 'READY');
+        if (firstReady) {
+          setSelectedSourceId(String(firstReady.id));
+        } else if (docs.length > 0) {
+          setSelectedSourceId(String(docs[0].id));
+        }
+      }
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to load conversation.');
+      if (err?.response?.status === 404) {
+        removeRecentConversation(conversationId);
+      }
     } finally {
       setIsLoading(false);
     }
   }, [workspaceId, knowledgeBaseId, conversationId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  // Auto-scroll to bottom
+  // Auto-trigger upload if ?upload=true is passed
+  useEffect(() => {
+    if (searchParams.get('upload') === 'true') {
+      setSourcesPanelOpen(true);
+    }
+  }, [searchParams]);
+
+  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Document status polling — poll while any document is in a non-terminal state
-  const TERMINAL_STATUSES = ['READY', 'FAILED'];
+  // Document status polling
   useEffect(() => {
     const hasNonTerminal = documents.some((d) => !TERMINAL_STATUSES.includes(d.status));
     if (!hasNonTerminal || isLoading) return;
@@ -93,70 +157,122 @@ export default function ConversationPage() {
         const docsData = await documentService.getConversationDocuments(knowledgeBaseId, conversationId);
         const updated = docsData?.documents || [];
         setDocuments(updated);
-        // Stop polling if all are now terminal
+
+        setSelectedSourceId((prev) => {
+          if (prev && updated.some((d) => String(d.id) === String(prev))) return prev;
+          const firstReady = updated.find((d) => d.status === 'READY');
+          return firstReady ? String(firstReady.id) : (updated[0] ? String(updated[0].id) : '');
+        });
+
         if (updated.every((d) => TERMINAL_STATUSES.includes(d.status))) {
           clearInterval(interval);
         }
-      } catch { /* silent — don't disrupt chat for polling failure */ }
+      } catch {
+        /* silent */
+      }
     }, 4000);
 
     return () => clearInterval(interval);
   }, [documents, isLoading, knowledgeBaseId, conversationId]);
 
-
-  // Handle file upload
+  // Upload handler
   async function handleFileUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploading(true);
-    setUploadError('');
+    setSendError('');
     try {
       const result = await documentService.uploadDocument(knowledgeBaseId, conversationId, file);
       setDocuments((prev) => [result.document, ...prev]);
+      if (result.document?.id) {
+        setSelectedSourceId(String(result.document.id));
+      }
+      setSourcesPanelOpen(true);
     } catch (err) {
-      setUploadError(err?.response?.data?.message || 'Upload failed. Accepted: PDF, DOCX, TXT, MD');
+      setSendError(err?.response?.data?.message || 'Upload failed. Accepted: PDF, DOCX, TXT, MD');
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      e.target.value = '';
     }
   }
 
-  async function refreshDocuments() {
+  // Download handler
+  async function handleDownload(doc) {
     try {
-      const docsData = await documentService.getConversationDocuments(knowledgeBaseId, conversationId);
-      setDocuments(docsData?.documents || []);
-    } catch { /* silent */ }
-  }
-
-  async function handleDocRename(newName) {
-    const result = await documentService.updateDocument(knowledgeBaseId, docRenameTarget.id, newName);
-    setDocuments((prev) =>
-      prev.map((d) => (d.id === docRenameTarget.id ? { ...d, ...result.document } : d))
-    );
-    setDocRenameTarget(null);
-  }
-
-  async function handleDocDelete() {
-    await documentService.deleteDocument(knowledgeBaseId, docDeleteTarget.id);
-    setDocuments((prev) => prev.filter((d) => d.id !== docDeleteTarget.id));
-    setDocDeleteTarget(null);
-  }
-
-  async function handleDocDownload(doc) {
-    try {
-      await documentService.downloadDocument(knowledgeBaseId, doc.id, doc.name || doc.original_filename);
+      await documentService.downloadDocument(
+        knowledgeBaseId,
+        doc.id,
+        doc.name || doc.original_filename
+      );
     } catch {
       setSendError('Failed to download document.');
     }
   }
 
+  // Rename conversation
+  async function handleRename(newTitle) {
+    try {
+      const result = await conversationService.renameConversation(knowledgeBaseId, conversationId, newTitle);
+      setConversation(result.conversation);
+      addRecentConversation({
+        conversationId,
+        knowledgeBaseId,
+        workspaceId,
+        title: result.conversation.title,
+      });
+    } catch (err) {
+      setSendError(err?.response?.data?.message || 'Failed to rename conversation.');
+    } finally {
+      setShowRenameModal(false);
+    }
+  }
+
+  // Delete conversation
+  async function handleDelete() {
+    try {
+      await conversationService.deleteConversation(knowledgeBaseId, conversationId);
+      removeRecentConversation(conversationId);
+      navigate(`/workspaces/${workspaceId}/knowledge-bases/${knowledgeBaseId}?tab=conversations`);
+    } catch (err) {
+      setSendError(err?.response?.data?.message || 'Failed to delete conversation.');
+      setShowDeleteModal(false);
+    }
+  }
+
+  // Share conversation action
+  function handleShare() {
+    navigator.clipboard.writeText(window.location.href);
+    setShareToast(true);
+    setTimeout(() => setShareToast(false), 2500);
+  }
+
   // Send message
   async function handleSend(e) {
-    e.preventDefault();
+    e?.preventDefault();
     const content = input.trim();
     if (!content || isSending) return;
 
     setSendError('');
+
+    // Pre-flight check for SOURCE scope
+    let effectiveSourceId = selectedSourceId;
+    if (scope === 'SOURCE') {
+      if (!effectiveSourceId) {
+        const active = conversation?.active_source_id;
+        const firstReady = documents.find((d) => d.status === 'READY')?.id;
+        const fallback = active || firstReady || documents[0]?.id;
+        if (fallback) {
+          effectiveSourceId = String(fallback);
+          setSelectedSourceId(effectiveSourceId);
+        }
+      }
+
+      if (!effectiveSourceId) {
+        setSendError('Please upload and select a document to query with Current Source scope.');
+        return;
+      }
+    }
+
     setIsSending(true);
     setInput('');
 
@@ -171,8 +287,8 @@ export default function ConversationPage() {
 
     try {
       const payload = { content, scope };
-      if (scope === 'SOURCE' && selectedSourceId) {
-        payload.sourceId = Number(selectedSourceId);
+      if (scope === 'SOURCE') {
+        payload.sourceId = Number(effectiveSourceId);
       }
       const result = await messageService.sendMessage(knowledgeBaseId, conversationId, payload);
 
@@ -182,7 +298,11 @@ export default function ConversationPage() {
           ? [...withoutOptimistic, result.userMessage, { ...result.assistantMessage, sources: result.sources || [] }]
           : [...withoutOptimistic, result.userMessage];
       });
-      refreshDocuments();
+
+      // Refresh documents list
+      documentService.getConversationDocuments(knowledgeBaseId, conversationId)
+        .then((data) => setDocuments(data?.documents || []))
+        .catch(() => {});
     } catch (err) {
       setMessages((prev) => prev.filter((m) => !m.optimistic));
       setInput(content);
@@ -192,413 +312,256 @@ export default function ConversationPage() {
     }
   }
 
-  function handleInputChange(e) {
-    setInput(e.target.value);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
-    }
-  }
-
-  function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend(e);
-    }
-  }
-
-  const breadcrumbs = [
-    { label: 'Workspaces', href: '/dashboard' },
-    { label: workspace?.name || 'Workspace', href: `/workspaces/${workspaceId}` },
-    { label: kb?.name || 'KB', href: `/workspaces/${workspaceId}/knowledge-bases/${knowledgeBaseId}` },
-    { label: conversation?.title || `Chat #${conversationId}` },
-  ];
-
   const readyDocs = documents.filter((d) => d.status === 'READY');
 
-  return (
-    <AppLayout breadcrumbs={breadcrumbs}>
-      {isLoading ? (
-        <div className="flex items-center justify-center py-32">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading conversation…</p>
-          </div>
-        </div>
-      ) : error ? (
-        <div className="text-center py-20">
-          <p className="text-sm" style={{ color: 'var(--status-error)' }}>{error}</p>
-        </div>
-      ) : (
-        <div className="flex gap-4 h-[calc(100vh-8rem)]">
-          {/* ── Sidebar ── */}
-          <aside
-            className="w-64 shrink-0 flex flex-col gap-4 overflow-y-auto rounded border p-4"
-            style={{
-              backgroundColor: 'var(--bg-surface)',
-              borderColor: 'var(--border-default)',
-            }}
-          >
-            {/* Documents section */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                  Documents
-                </span>
-                <button
-                  id="refresh-docs-btn"
-                  onClick={refreshDocuments}
-                  className="text-xs cursor-pointer"
-                  style={{ color: 'var(--text-muted)' }}
-                  onMouseEnter={(e) => (e.target.style.color = 'var(--accent-text)')}
-                  onMouseLeave={(e) => (e.target.style.color = 'var(--text-muted)')}
-                  title="Refresh"
-                >
-                  ↻
-                </button>
-              </div>
-
-              {/* Upload button */}
-              <div className="mb-3">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  id="doc-upload-input"
-                  accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="w-full flex items-center justify-center gap-2 py-2 rounded border text-sm font-medium cursor-pointer disabled:opacity-50"
-                  style={{
-                    backgroundColor: 'var(--bg-elevated)',
-                    borderColor: 'var(--border-default)',
-                    color: 'var(--text-secondary)',
-                  }}
-                  onMouseEnter={(e) => !isUploading && (e.currentTarget.style.borderColor = 'var(--border-strong)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-default)')}
-                >
-                  {isUploading ? (
-                    <>
-                      <span className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-                      Uploading…
-                    </>
-                  ) : (
-                    <>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="17 8 12 3 7 8" />
-                        <line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
-                      Upload Document
-                    </>
-                  )}
-                </button>
-                {uploadError && (
-                  <p className="text-xs mt-1.5" style={{ color: 'var(--status-error)' }}>{uploadError}</p>
-                )}
-              </div>
-
-              {/* Document list */}
-              {documents.length === 0 ? (
-                <p className="text-xs text-center py-4" style={{ color: 'var(--text-muted)' }}>
-                  No documents yet.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-1.5">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="p-2.5 rounded border"
-                      style={{
-                        backgroundColor: 'var(--bg-elevated)',
-                        borderColor: 'var(--border-subtle)',
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-1 mb-1">
-                        <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-                          {doc.name || doc.original_filename}
-                        </p>
-                        <ContextMenu
-                          items={[
-                            { label: 'Rename', onClick: () => setDocRenameTarget(doc) },
-                            ...(doc.status === 'READY' ? [{ label: 'Download', onClick: () => handleDocDownload(doc) }] : []),
-                            { label: 'Delete', onClick: () => setDocDeleteTarget(doc), danger: true },
-                          ]}
-                        />
-                      </div>
-                      <DocumentStatusBadge status={doc.status} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Retrieval Scope */}
-            <div className="border-t pt-4" style={{ borderColor: 'var(--border-subtle)' }}>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-                Retrieval Scope
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {SCOPES.map((s) => (
-                  <button
-                    key={s.value}
-                    id={`scope-${s.value}`}
-                    onClick={() => setScope(s.value)}
-                    className="text-left p-2.5 rounded border cursor-pointer"
-                    style={{
-                      backgroundColor: scope === s.value ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
-                      borderColor: scope === s.value ? 'var(--accent)' : 'var(--border-subtle)',
-                    }}
-                  >
-                    <p className="text-xs font-medium" style={{ color: scope === s.value ? 'var(--accent-text)' : 'var(--text-primary)' }}>
-                      {s.label}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                      {s.description}
-                    </p>
-                  </button>
-                ))}
-              </div>
-
-              {/* Source selector */}
-              {scope === 'SOURCE' && (
-                <div className="mt-3">
-                  <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>
-                    Select document
-                  </label>
-                  {readyDocs.length === 0 ? (
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No ready documents.</p>
-                  ) : (
-                    <select
-                      id="source-select"
-                      value={selectedSourceId}
-                      onChange={(e) => setSelectedSourceId(e.target.value)}
-                      className="w-full px-2.5 py-2 rounded text-xs border focus:outline-none"
-                      style={{
-                        backgroundColor: 'var(--bg-elevated)',
-                        borderColor: 'var(--border-default)',
-                        color: 'var(--text-primary)',
-                      }}
-                    >
-                      <option value="">— Choose document —</option>
-                      {readyDocs.map((doc) => (
-                        <option key={doc.id} value={doc.id}>{doc.name || doc.original_filename}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              )}
-            </div>
-          </aside>
-
-          {/* ── Main Chat Panel ── */}
-          <div className="flex-1 flex flex-col min-w-0 rounded border overflow-hidden" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}>
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
-              {messages.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center py-16">
-                  <div
-                    className="w-12 h-12 rounded flex items-center justify-center mb-4"
-                    style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    Ask anything about your documents
-                  </p>
-                  <p className="text-xs mt-2 max-w-xs" style={{ color: 'var(--text-secondary)' }}>
-                    Upload a document and ask a question. RecallAI will retrieve relevant context and generate an answer.
-                  </p>
-                </div>
-              )}
-
-              {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
-              ))}
-
-              {/* Typing indicator */}
-              {isSending && (
-                <div className="flex items-center gap-3 animate-fade-in">
-                  <div
-                    className="w-7 h-7 rounded flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
-                  >
-                    <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>AI</span>
-                  </div>
-                  <div
-                    className="flex items-center gap-1.5 px-4 py-3 rounded"
-                    style={{ backgroundColor: 'var(--bg-elevated)' }}
-                  >
-                    {[0, 1, 2].map((i) => (
-                      <span
-                        key={i}
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{
-                          backgroundColor: 'var(--text-muted)',
-                          animation: `fadeIn ${0.6 + i * 0.15}s infinite alternate`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Send error */}
-            {sendError && (
-              <div
-                className="mx-6 mb-2 text-xs px-3 py-2 rounded border"
-                style={{
-                  color: 'var(--status-error)',
-                  backgroundColor: 'rgba(239,68,68,0.07)',
-                  borderColor: 'rgba(239,68,68,0.18)',
-                }}
-              >
-                {sendError}
-                <button onClick={() => setSendError('')} className="ml-2 underline cursor-pointer">Dismiss</button>
-              </div>
-            )}
-
-            {/* Input area */}
-            <div className="border-t p-4" style={{ borderColor: 'var(--border-subtle)' }}>
-              <form onSubmit={handleSend} className="flex items-end gap-3">
-                <div className="flex-1">
-                  <textarea
-                    ref={textareaRef}
-                    id="chat-input"
-                    value={input}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask a question… (Enter to send)"
-                    rows={1}
-                    className="w-full px-4 py-3 rounded border text-sm resize-none focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--bg-elevated)',
-                      borderColor: 'var(--border-default)',
-                      color: 'var(--text-primary)',
-                      maxHeight: '160px',
-                      lineHeight: '1.5',
-                    }}
-                    onFocus={(e) => (e.target.style.borderColor = 'var(--accent)')}
-                    onBlur={(e) => (e.target.style.borderColor = 'var(--border-default)')}
-                    disabled={isSending}
-                  />
-                </div>
-                <button
-                  id="send-message-btn"
-                  type="submit"
-                  disabled={!input.trim() || isSending}
-                  className="flex items-center justify-center w-10 h-10 rounded shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: 'var(--accent)' }}
-                  onMouseEnter={(e) => !(isSending || !input.trim()) && (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--accent)')}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13" />
-                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                  </svg>
-                </button>
-              </form>
-              <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                Scope: <span style={{ color: 'var(--text-secondary)' }}>{scope}</span>
-                {scope === 'SOURCE' && selectedSourceId && (
-                  <> · Source: <span style={{ color: 'var(--accent-text)' }}>
-                    {documents.find(d => String(d.id) === String(selectedSourceId))?.name || selectedSourceId}
-                  </span></>
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {docRenameTarget && (
-        <RenameModal
-          title="Rename Document"
-          currentName={docRenameTarget.name || docRenameTarget.original_filename || ''}
-          onRename={handleDocRename}
-          onClose={() => setDocRenameTarget(null)}
-        />
-      )}
-
-      {docDeleteTarget && (
-        <ConfirmDeleteModal
-          title="Delete Document"
-          message={`Are you sure you want to delete "${docDeleteTarget.name || docDeleteTarget.original_filename}"? This action cannot be undone.`}
-          onConfirm={handleDocDelete}
-          onClose={() => setDocDeleteTarget(null)}
-        />
-      )}
-    </AppLayout>
-  );
-}
-
-// ── Message Bubble ────────────────────────────────────────────
-
-function MessageBubble({ message }) {
-  const isUser = message.role === 'USER';
+  const formattedDate = conversation?.created_at
+    ? new Date(conversation.created_at).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : '';
 
   return (
-    <div className={`flex items-start gap-3 animate-message ${isUser ? 'flex-row-reverse' : ''}`}>
-      {/* Avatar */}
-      <div
-        className="w-7 h-7 rounded flex items-center justify-center shrink-0 text-xs font-semibold"
-        style={{
-          backgroundColor: isUser ? 'var(--accent)' : 'var(--bg-elevated)',
-          color: isUser ? '#fff' : 'var(--text-muted)',
-          border: isUser ? 'none' : '1px solid var(--border-default)',
-        }}
-      >
-        {isUser ? 'U' : 'AI'}
-      </div>
-
-      {/* Content */}
-      <div className={`flex flex-col gap-1.5 max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
-        <div
-          className="px-4 py-3 rounded text-sm leading-relaxed whitespace-pre-wrap"
+    <div className="flex h-full overflow-hidden">
+      {/* Main Conversation Stream */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Chat Header */}
+        <header
+          className="h-14 shrink-0 px-6 border-b flex items-center justify-between gap-4 z-10"
           style={{
-            backgroundColor: isUser ? 'var(--accent)' : 'var(--bg-elevated)',
-            color: isUser ? '#fff' : 'var(--text-primary)',
-            opacity: message.optimistic ? 0.6 : 1,
+            backgroundColor: 'var(--bg-base)',
+            borderColor: 'var(--border-default)',
           }}
         >
-          {message.content}
-        </div>
+          {/* Left info: Breadcrumb & Title */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
+                <Link to={`/workspaces/${workspaceId}`} className="hover:underline" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>
+                  {workspace?.name || 'Workspace'}
+                </Link>
+                <span>&gt;</span>
+                <Link to={`/workspaces/${workspaceId}/knowledge-bases/${knowledgeBaseId}`} className="hover:underline" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>
+                  {kb?.name || 'Knowledge Base'}
+                </Link>
+              </div>
 
-        {/* Sources */}
-        {!isUser && message.sources && message.sources.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Sources:</span>
-            {message.sources.map((src) => (
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                  {conversation?.title || `Conversation #${conversationId}`}
+                </h1>
+                <button
+                  onClick={() => setShowRenameModal(true)}
+                  className="p-1 rounded cursor-pointer transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                  title="Rename conversation"
+                >
+                  <EditPencilIcon />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Header Actions */}
+          <div className="flex items-center gap-2 shrink-0">
+            {shareToast && (
+              <span className="text-xs px-2.5 py-1 rounded-md" style={{ backgroundColor: 'var(--accent-subtle)', color: 'var(--accent-text)', border: '1px solid var(--accent-border)' }}>
+                Link copied to clipboard!
+              </span>
+            )}
+
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer border transition-colors"
+              style={{
+                backgroundColor: 'var(--bg-elevated)',
+                borderColor: 'var(--border-default)',
+                color: 'var(--text-secondary)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-strong)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-default)';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              <ShareIcon />
+              <span>Share</span>
+            </button>
+
+            <ContextMenu
+              items={[
+                { label: 'Rename conversation', onClick: () => setShowRenameModal(true) },
+                { label: 'Delete conversation', onClick: () => setShowDeleteModal(true), danger: true },
+              ]}
+            />
+          </div>
+        </header>
+
+        {/* Chat Messages Stream */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 flex flex-col">
+          {/* Top Date Separator */}
+          {formattedDate && (
+            <div className="flex items-center justify-center my-4">
               <span
-                key={src.id}
-                className="text-xs px-2 py-0.5 rounded border"
+                className="text-[11px] px-3 py-1 rounded-full font-medium"
                 style={{
-                  backgroundColor: 'var(--accent-subtle)',
-                  borderColor: 'var(--accent-border)',
-                  color: 'var(--accent-text)',
+                  backgroundColor: 'var(--bg-elevated)',
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
-                {src.name}
+                {formattedDate}
               </span>
-            ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!isLoading && messages.length === 0 && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-16">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
+              >
+                <span className="font-bold text-base" style={{ color: 'var(--accent-text)' }}>R</span>
+              </div>
+              <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                Ask anything about your knowledge
+              </h2>
+              <p className="text-xs max-w-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+                RecallAI retrieves relevant chunks from your documents and generates context-grounded answers.
+              </p>
+              {documents.length === 0 && (
+                <button
+                  onClick={() => setShowAddSourceModal(true)}
+                  className="px-3.5 py-2 rounded text-xs font-medium text-white cursor-pointer"
+                  style={{ backgroundColor: 'var(--accent)' }}
+                >
+                  Upload your first document
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Messages list */}
+          {messages.map((msg) => (
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              onOpenSources={(sources) => {
+                setFocusedSources(sources);
+                setSourcesPanelOpen(true);
+              }}
+            />
+          ))}
+
+          {/* Sending / Thinking Indicator */}
+          {isSending && (
+            <div className="flex items-start gap-3.5 animate-fade-in my-3">
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold"
+                style={{ backgroundColor: 'var(--accent)', color: '#fff' }}
+              >
+                R
+              </div>
+              <div
+                className="px-4 py-3 rounded-xl flex items-center gap-1.5"
+                style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ color: 'var(--accent-text)' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:0.15s]" style={{ color: 'var(--accent-text)' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:0.3s]" style={{ color: 'var(--accent-text)' }} />
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Error Alert if any */}
+        {sendError && (
+          <div className="mx-6 mb-2 text-xs px-3.5 py-2 rounded-lg border flex items-center justify-between"
+            style={{
+              color: 'var(--status-error)',
+              backgroundColor: 'rgba(239,68,68,0.08)',
+              borderColor: 'rgba(239,68,68,0.2)',
+            }}
+          >
+            <span>{sendError}</span>
+            <button onClick={() => setSendError('')} className="underline cursor-pointer ml-2">Dismiss</button>
           </div>
         )}
 
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          {message.created_at
-            ? new Date(message.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-            : ''}
-        </span>
+        {/* Bottom Composer */}
+        <div className="px-4 sm:px-8 pb-5 pt-2">
+          <div className="max-w-4xl mx-auto">
+            <Composer
+              input={input}
+              setInput={setInput}
+              onSend={handleSend}
+              isSending={isSending}
+              scope={scope}
+              onScopeChange={setScope}
+              selectedSourceId={selectedSourceId}
+              onSourceChange={setSelectedSourceId}
+              readyDocs={readyDocs}
+              documents={documents}
+              isUploading={isUploading}
+              onFileUpload={handleFileUpload}
+              onToggleSourcesPanel={() => {
+                setFocusedSources(null);
+                setSourcesPanelOpen((prev) => !prev);
+              }}
+              sourcesPanelOpen={sourcesPanelOpen}
+            />
+          </div>
+        </div>
       </div>
+
+      {/* Slide-over Right Sources Panel */}
+      <SourcesPanel
+        isOpen={sourcesPanelOpen}
+        onClose={() => setSourcesPanelOpen(false)}
+        documents={documents}
+        focusedSources={focusedSources}
+        onDownload={handleDownload}
+        onUploadClick={() => setShowAddSourceModal(true)}
+      />
+
+      {/* Add Source Modal */}
+      {showAddSourceModal && (
+        <AddSourceModal
+          workspaceId={workspaceId}
+          knowledgeBaseId={knowledgeBaseId}
+          conversations={[{ id: conversationId, title: conversation?.title }]}
+          onClose={() => setShowAddSourceModal(false)}
+        />
+      )}
+
+      {/* Rename Modal */}
+      {showRenameModal && (
+        <RenameModal
+          title="Rename Conversation"
+          currentName={conversation?.title || ''}
+          onRename={handleRename}
+          onClose={() => setShowRenameModal(false)}
+        />
+      )}
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <ConfirmDeleteModal
+          title="Delete Conversation"
+          message={`Are you sure you want to delete "${conversation?.title || `Conversation #${conversationId}`}"? All messages and attachments will be permanently removed.`}
+          onConfirm={handleDelete}
+          onClose={() => setShowDeleteModal(false)}
+        />
+      )}
     </div>
   );
 }

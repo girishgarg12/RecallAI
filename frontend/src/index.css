@@ -30,6 +30,14 @@
   --status-warning: #f59e0b;
   --status-error:   #ef4444;
   --status-info:    #60a5fa;
+
+  /* ── Sidebar ──────────────────────────────────── */
+  --sidebar-width:       220px;
+  --sidebar-bg:          #0c0c0e;
+  --sidebar-border:      #1a1a1d;
+  --nav-active-bg:       rgba(37, 99, 235, 0.10);
+  --nav-active-text:     #60a5fa;
+  --nav-hover-bg:        rgba(255,255,255,0.04);
 }
 
 /* ===== Base Styles ===== */
@@ -108,11 +116,24 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes sidebarSlideIn {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
 /* ===== Utility Classes ===== */
-.animate-fade-in  { animation: fadeIn      0.25s ease-out forwards; }
-.animate-slide-in { animation: slideIn     0.2s  ease-out forwards; }
-.animate-message  { animation: messageAppear 0.25s ease-out forwards; }
-.animate-spin     { animation: spin        0.8s  linear  infinite; }
+.animate-fade-in      { animation: fadeIn          0.25s ease-out forwards; }
+.animate-slide-in     { animation: slideIn         0.2s  ease-out forwards; }
+.animate-message      { animation: messageAppear   0.25s ease-out forwards; }
+.animate-spin         { animation: spin            0.8s  linear  infinite; }
+.animate-sidebar-in   { animation: sidebarSlideIn  0.22s ease-out forwards; }
+
+/* ===== Sources Panel Slide ===== */
+@keyframes panelSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.animate-panel-in { animation: panelSlideIn 0.22s ease-out forwards; }
 
 /* ===== Skeleton ===== */
 .skeleton {
