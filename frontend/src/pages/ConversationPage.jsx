@@ -64,7 +64,7 @@ export default function ConversationPage() {
   const [sendError, setSendError] = useState('');
 
   // Scope state
-  const [scope, setScope] = useState('KNOWLEDGE_BASE');
+  const [scope, setScope] = useState('CONVERSATION');
   const [selectedSourceId, setSelectedSourceId] = useState('');
 
   // Sources drawer state

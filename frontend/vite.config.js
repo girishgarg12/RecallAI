@@ -11,27 +11,47 @@ export default defineConfig({
 
   server: {
     proxy: {
-      // Forward all backend API paths to the backend server.
-      // This avoids the browser's CORS block because both origin and
-      // destination are now localhost:5173 from the browser's perspective.
-      // The Vite dev server performs the actual forwarding server-side.
+      // Forward backend API requests to the backend server.
+      // Bypass any browser page navigations (requests accepting text/html)
+      // so Vite serves index.html for client-side routing upon refresh.
       '/auth': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('text/html')) {
+            return '/index.html';
+          }
+        },
       },
       '/workspaces': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('text/html')) {
+            return '/index.html';
+          }
+        },
       },
       '/knowledge-bases': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('text/html')) {
+            return '/index.html';
+          }
+        },
       },
       '/users': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('text/html')) {
+            return '/index.html';
+          }
+        },
       },
     },
   },
 })
+
 

@@ -108,7 +108,7 @@ export default function Composer({
     }
   }
 
-  const currentScopeLabel = SCOPE_OPTIONS.find((s) => s.value === scope)?.label || 'Knowledge Base';
+  const currentScopeLabel = SCOPE_OPTIONS.find((s) => s.value === scope)?.label || 'Conversation';
 
   return (
     <div
