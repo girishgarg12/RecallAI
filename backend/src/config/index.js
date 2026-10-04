@@ -81,6 +81,19 @@ const config = {
             apiKey: process.env.GEMINI_API_KEY,
             summarizerModel: process.env.GEMINI_SUMMARIZER_MODEL
         }
+    },
+
+    urlIngestion: {
+        // Maximum response body size in bytes (default: 10 MB).
+        // Configurable via URL_MAX_RESPONSE_SIZE env variable.
+        maxResponseSize: Number(process.env.URL_MAX_RESPONSE_SIZE) || 10 * 1024 * 1024,
+
+        // Network request timeout in milliseconds (default: 20 seconds).
+        // Configurable via URL_FETCH_TIMEOUT_MS env variable.
+        timeoutMs: Number(process.env.URL_FETCH_TIMEOUT_MS) || 20000,
+
+        // Maximum number of redirects to follow manually (SSRF-safe).
+        maxRedirects: 5
     }
 
 };

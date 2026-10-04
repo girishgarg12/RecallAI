@@ -1,14 +1,15 @@
 /**
  * AddSourceModal — extensible modal for adding knowledge sources.
  *
- * Implements Prototype Image 1, item 8:
+ * Implements:
  *  - Upload File (PDF, DOCX, TXT, MD) -> conversation-bound navigation / creation
- *  - Add URL -> Coming soon
+ *  - Add URL (Active) -> Webpage URL ingestion with SSRF & async BullMQ pipeline
  *  - Connect Repository -> Coming soon
  */
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as documentService from '../../services/document.service.js';
 
 function CloseIcon() {
   return (
@@ -50,11 +51,18 @@ export default function AddSourceModal({
   knowledgeBaseId,
   conversations = [],
   onCreateConversation,
+  onSourceAdded,
   onClose,
 }) {
   const navigate = useNavigate();
   const [selectedType, setSelectedType] = useState('file'); // 'file' | 'url' | 'repo'
   const [isCreatingConv, setIsCreatingConv] = useState(false);
+
+  // URL state
+  const [urlInput, setUrlInput] = useState('');
+  const [selectedConvId, setSelectedConvId] = useState(conversations[0]?.id || '');
+  const [isSubmittingUrl, setIsSubmittingUrl] = useState(false);
+  const [urlError, setUrlError] = useState('');
 
   async function handleGoToNewConversation() {
     setIsCreatingConv(true);
@@ -70,6 +78,50 @@ export default function AddSourceModal({
   function handleSelectConversation(convId) {
     onClose();
     navigate(`/workspaces/${workspaceId}/knowledge-bases/${knowledgeBaseId}/conversations/${convId}?upload=true`);
+  }
+
+  async function handleAddUrlSubmit(e) {
+    e.preventDefault();
+    setUrlError('');
+
+    const trimmed = urlInput.trim();
+    if (!trimmed) {
+      setUrlError('URL is required');
+      return;
+    }
+
+    if (!/^https?:\/\//i.test(trimmed)) {
+      setUrlError('URL must start with http:// or https://');
+      return;
+    }
+
+    let targetConvId = selectedConvId;
+    if (!targetConvId) {
+      if (conversations.length > 0) {
+        targetConvId = conversations[0].id;
+      } else {
+        setUrlError('Please start a conversation first to attach this source.');
+        return;
+      }
+    }
+
+    setIsSubmittingUrl(true);
+    try {
+      const res = await documentService.addUrlSource(
+        knowledgeBaseId,
+        targetConvId,
+        trimmed
+      );
+
+      if (onSourceAdded) {
+        onSourceAdded(res.document);
+      }
+      onClose();
+    } catch (err) {
+      setUrlError(err?.response?.data?.message || err.message || 'Failed to add URL source');
+    } finally {
+      setIsSubmittingUrl(false);
+    }
   }
 
   return (
@@ -147,26 +199,27 @@ export default function AddSourceModal({
                   border: '1px solid var(--accent-border)',
                 }}
               >
-                Currently supported
+                Active
               </span>
             </div>
           </div>
 
-          {/* 2. Add URL */}
+          {/* 2. Add URL (Now Active) */}
           <div
-            className="rounded-lg border p-4 opacity-50 cursor-not-allowed flex flex-col justify-between"
+            onClick={() => setSelectedType('url')}
+            className="rounded-lg border p-4 cursor-pointer transition-all flex flex-col justify-between"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
-              borderColor: 'var(--border-subtle)',
+              backgroundColor: selectedType === 'url' ? 'var(--nav-active-bg)' : 'var(--bg-elevated)',
+              borderColor: selectedType === 'url' ? 'var(--accent)' : 'var(--border-default)',
             }}
           >
             <div>
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center mb-3"
                 style={{
-                  backgroundColor: 'var(--bg-surface)',
-                  color: 'var(--text-muted)',
-                  border: '1px solid var(--border-default)',
+                  backgroundColor: 'rgba(37, 99, 235, 0.15)',
+                  color: 'var(--accent-text)',
+                  border: '1px solid var(--accent-border)',
                 }}
               >
                 <LinkIcon />
@@ -182,17 +235,17 @@ export default function AddSourceModal({
               <span
                 className="text-[10px] font-medium px-2 py-0.5 rounded-full"
                 style={{
-                  backgroundColor: 'var(--bg-surface)',
-                  color: 'var(--text-muted)',
-                  border: '1px solid var(--border-default)',
+                  backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                  color: 'var(--status-success)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
                 }}
               >
-                Coming soon
+                Supported
               </span>
             </div>
           </div>
 
-          {/* 3. Connect Repository */}
+          {/* 3. Connect Repository (Coming Soon) */}
           <div
             className="rounded-lg border p-4 opacity-50 cursor-not-allowed flex flex-col justify-between"
             style={{
@@ -233,7 +286,7 @@ export default function AddSourceModal({
           </div>
         </div>
 
-        {/* Dynamic Section for Upload File */}
+        {/* Section for Upload File */}
         {selectedType === 'file' && (
           <div
             className="rounded-lg border p-4"
@@ -299,6 +352,97 @@ export default function AddSourceModal({
               </p>
             )}
           </div>
+        )}
+
+        {/* Section for Add URL */}
+        {selectedType === 'url' && (
+          <form
+            onSubmit={handleAddUrlSubmit}
+            className="rounded-lg border p-4 flex flex-col gap-3"
+            style={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-default)' }}
+          >
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-primary)' }}>
+                Webpage URL
+              </p>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                RecallAI will fetch this webpage asynchronously, parse its main text, and make it queryable via RAG.
+              </p>
+
+              <div className="flex flex-col gap-2">
+                <input
+                  type="url"
+                  placeholder="https://example.com/article"
+                  value={urlInput}
+                  onChange={(e) => {
+                    setUrlInput(e.target.value);
+                    if (urlError) setUrlError('');
+                  }}
+                  className="w-full px-3 py-2 rounded text-xs border focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderColor: urlError ? 'var(--status-error)' : 'var(--border-default)',
+                    color: 'var(--text-primary)',
+                  }}
+                  disabled={isSubmittingUrl}
+                  autoFocus
+                />
+
+                {conversations.length > 0 && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Attach to conversation:</span>
+                    <select
+                      value={selectedConvId}
+                      onChange={(e) => setSelectedConvId(e.target.value)}
+                      className="px-2 py-1 rounded text-xs border focus:outline-none cursor-pointer"
+                      style={{
+                        backgroundColor: 'var(--bg-surface)',
+                        borderColor: 'var(--border-default)',
+                        color: 'var(--text-primary)',
+                      }}
+                      disabled={isSubmittingUrl}
+                    >
+                      {conversations.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title || `Conversation #${c.id}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {urlError && (
+              <p className="text-xs px-2.5 py-1.5 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-error)' }}>
+                {urlError}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 rounded text-xs cursor-pointer border"
+                style={{
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-secondary)',
+                  backgroundColor: 'transparent',
+                }}
+                disabled={isSubmittingUrl}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingUrl || !urlInput.trim()}
+                className="px-3 py-1.5 rounded text-xs font-medium text-white cursor-pointer disabled:opacity-50"
+                style={{ backgroundColor: 'var(--accent)' }}
+              >
+                {isSubmittingUrl ? 'Adding URL…' : 'Add URL'}
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>

@@ -11,7 +11,18 @@
 import SourceStatusBadge from './SourceStatusBadge.jsx';
 import ContextMenu from '../common/ContextMenu.jsx';
 
-function FileTypeIcon({ mimeType, name }) {
+function FileTypeIcon({ mimeType, name, sourceType }) {
+  if (sourceType === 'URL') {
+    return (
+      <div
+        className="w-7 h-7 rounded flex items-center justify-center shrink-0 font-bold text-[9px]"
+        style={{ backgroundColor: 'rgba(37, 99, 235, 0.12)', color: 'var(--accent-text)', border: '1px solid var(--accent-border)' }}
+      >
+        URL
+      </div>
+    );
+  }
+
   const fileName = (name || '').toLowerCase();
   const isPdf = mimeType?.includes('pdf') || fileName.endsWith('.pdf');
   const isDoc = mimeType?.includes('word') || fileName.endsWith('.docx') || fileName.endsWith('.doc');
@@ -75,11 +86,12 @@ function formatDate(dateStr) {
 }
 
 export default function SourceRow({ source, onRename, onDelete, onDownload }) {
-  const displayName = source.name || source.original_filename || 'Untitled document';
+  const isUrl = source.source_type === 'URL';
+  const displayName = source.name || (isUrl ? source.source_url : source.original_filename) || 'Untitled source';
 
   const menuItems = [
     { label: 'Rename', onClick: () => onRename(source) },
-    ...(source.status === 'READY' ? [{ label: 'Download', onClick: () => onDownload(source) }] : []),
+    ...(!isUrl && source.status === 'READY' ? [{ label: 'Download', onClick: () => onDownload(source) }] : []),
     { label: 'Delete', onClick: () => onDelete(source), danger: true },
   ];
 
@@ -90,16 +102,16 @@ export default function SourceRow({ source, onRename, onDelete, onDownload }) {
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--nav-hover-bg)')}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
     >
-      {/* Name + Size */}
+      {/* Name + Size / URL */}
       <td className="py-3 px-4">
         <div className="flex items-center gap-3 min-w-0">
-          <FileTypeIcon mimeType={source.mime_type} name={source.name || source.original_filename} />
+          <FileTypeIcon mimeType={source.mime_type} name={source.name || source.original_filename} sourceType={source.source_type} />
           <div className="min-w-0">
             <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }} title={displayName}>
               {displayName}
             </p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {formatSize(source.file_size)}
+            <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }} title={isUrl ? source.source_url : undefined}>
+              {isUrl ? (source.source_url || 'Webpage URL') : formatSize(source.file_size)}
             </p>
           </div>
         </div>
@@ -107,7 +119,7 @@ export default function SourceRow({ source, onRename, onDelete, onDownload }) {
 
       {/* Type */}
       <td className="py-3 px-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-        Document
+        {isUrl ? 'URL' : 'Document'}
       </td>
 
       {/* Status */}

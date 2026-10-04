@@ -43,6 +43,14 @@ export async function uploadDocument(knowledgeBaseId, conversationId, file) {
   return data; // { message, document }
 }
 
+export async function addUrlSource(knowledgeBaseId, conversationId, url) {
+  const { data } = await apiClient.post(
+    `/knowledge-bases/${knowledgeBaseId}/conversations/${conversationId}/sources/url`,
+    { url }
+  );
+  return data; // { message, document }
+}
+
 export async function getDocuments(knowledgeBaseId) {
   const { data } = await apiClient.get(`/knowledge-bases/${knowledgeBaseId}/documents`);
   return data; // { documents }

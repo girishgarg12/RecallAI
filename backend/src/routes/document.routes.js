@@ -3,7 +3,8 @@ import * as documentController from '../controllers/document.controller.js';
 import authenticate from '../middleware/authenticate.js';
 import validateUploadDocument from '../middleware/validateUploadDocument.js';
 import validateAskQuestion from '../middleware/validateAskQuestion.js';
-import validateUpdateDocument from '../middleware/validateUpdateDocument.js'
+import validateUpdateDocument from '../middleware/validateUpdateDocument.js';
+import validateAddUrlSource from '../middleware/validateAddUrlSource.js';
 import upload from '../config/multer.js';
 
 const router = express.Router();
@@ -14,6 +15,13 @@ router.post(
     upload.single("document"),
     validateUploadDocument,
     documentController.uploadDocument
+);
+
+router.post(
+    "/:knowledgeBaseId/conversations/:conversationId/sources/url",
+    authenticate,
+    validateAddUrlSource,
+    documentController.addUrlSource
 );
 
 

@@ -1,12 +1,17 @@
 import AppError from "../errors/AppError.js";
 import config from "../config/index.js";
-import { DOCUMENT_MIME_TYPES } from "../constants/document.constants.js";
+import { DOCUMENT_MIME_TYPES, SOURCE_TYPES } from "../constants/document.constants.js";
 import path from 'path';
 import fs from "fs/promises";
 import { PDFParse } from "pdf-parse";
 import { normalizeText } from "../utils/text.util.js";
+import * as urlExtractionService from "./urlExtraction.service.js";
 
 export async function extract(document) {
+    if (document.source_type === SOURCE_TYPES.URL) {
+        return await urlExtractionService.fetchAndExtract(document);
+    }
+
     switch(document.mime_type){
         case DOCUMENT_MIME_TYPES.PDF:
             return extractPdf(document);

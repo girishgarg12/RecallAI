@@ -8,7 +8,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import AppError from '../errors/AppError.js';
 import documentQueue from '../queues/document.queue.js';
-import { resolve } from 'dns';
+import { validateUrl, normalizeUrl } from '../utils/url.util.js';
 
 export async function uploadDocument(
     knowledgeBaseId,
@@ -52,6 +52,77 @@ export async function uploadDocument(
         );
 
      //Queue document processing
+    await documentQueue.add(
+        JOB_NAMES.PROCESS_DOCUMENT,
+        {
+            documentId: document.id
+        }
+    );
+
+    return document;
+}
+
+export async function addUrlSource(
+    knowledgeBaseId,
+    conversationId,
+    rawUrl,
+    authenticatedUser
+) {
+    // 1. Verify user has access to the knowledge base
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    // 2. Verify conversation belongs to this knowledge base
+    const conversation =
+        await conversationRepository.getConversationByIdAndKnowledgeBaseId(
+            conversationId,
+            knowledgeBaseId
+        );
+
+    if (!conversation) {
+        throw new AppError("Conversation not found", 404);
+    }
+
+    // 3. Validate URL format and perform synchronous SSRF checks
+    const parsed = validateUrl(rawUrl);
+
+    // 4. Normalize URL
+    const normalized = normalizeUrl(rawUrl);
+
+    // 5. Check deduplication within the Knowledge Base
+    const existing = await documentRepository.getUrlByKnowledgeBase(
+        knowledgeBaseId,
+        normalized
+    );
+    if (existing) {
+        throw new AppError(
+            `A source with this URL already exists in this Knowledge Base (Status: ${existing.status})`,
+            409
+        );
+    }
+
+    // 6. Generate initial fallback display name from hostname/path
+    const pathnameClean = parsed.pathname.replace(/^\/|\/$/g, '');
+    const fallbackName = pathnameClean
+        ? `${parsed.hostname}/${pathnameClean.slice(0, 30)}`
+        : parsed.hostname;
+
+    // 7. Create URL document and set as active source in conversation
+    const documentData = {
+        knowledgeBaseId,
+        conversationId,
+        name: fallbackName,
+        sourceUrl: normalized,
+        status: DOCUMENT_STATUS.UPLOADED
+    };
+
+    const document = await documentRepository.createUrlDocumentAndSetActiveSource(
+        documentData
+    );
+
+    // 8. Queue document processing job
     await documentQueue.add(
         JOB_NAMES.PROCESS_DOCUMENT,
         {
@@ -126,8 +197,16 @@ export async function deleteDocument(knowledgeBaseId, documentId, authenticatedU
         throw new AppError("Document not found", 404);
     }
 
-    const filepath = path.join(process.cwd(), config.storage.uploadDirectory, document.storage_key);
-    await fs.unlink(filepath);
+    // Only attempt disk deletion if a storage key is present (FILE sources)
+    if (document.storage_key) {
+        const filepath = path.join(process.cwd(), config.storage.uploadDirectory, document.storage_key);
+        try {
+            await fs.unlink(filepath);
+        } catch {
+            // File might already be gone; proceed with DB deletion
+        }
+    }
+
     await documentRepository.deleteDocument(documentId);
 }
 

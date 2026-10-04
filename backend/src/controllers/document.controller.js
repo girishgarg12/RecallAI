@@ -18,6 +18,23 @@ export async function uploadDocument(req, res) {
     });
 }
 
+export async function addUrlSource(req, res) {
+    const { knowledgeBaseId, conversationId } = req.params;
+    const { url } = req.body;
+
+    const document = await documentService.addUrlSource(
+        knowledgeBaseId,
+        conversationId,
+        url,
+        req.user
+    );
+
+    return res.status(202).json({
+        message: "URL source accepted for processing",
+        document
+    });
+}
+
 export async function getConversationDocuments(req, res) {
     const { knowledgeBaseId, conversationId } = req.params;
 
