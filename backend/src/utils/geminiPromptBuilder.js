@@ -42,8 +42,11 @@ ${chunk.content}`
                 )
                 .join("\n\n");
 
+            const label = chunks[0]?.filePath || chunks[0]?.documentName;
+            const header = label ? `[DOCUMENT ${documentId} (${label})]` : `[DOCUMENT ${documentId}]`;
+
             return `
-[DOCUMENT ${documentId}]
+${header}
 
 ${chunkContent}
 

@@ -3,8 +3,8 @@
  *
  * Implements:
  *  - Upload File (PDF, DOCX, TXT, MD) -> conversation-bound navigation / creation
- *  - Add URL (Active) -> Webpage URL ingestion with SSRF & async BullMQ pipeline
- *  - Connect Repository -> Coming soon
+ *  - Add URL -> Webpage URL ingestion with SSRF & async BullMQ pipeline
+ *  - Connect Repository (Active) -> GitHub repository ingestion with safe zipball extraction & code indexing
  */
 
 import { useState } from 'react';
@@ -64,6 +64,11 @@ export default function AddSourceModal({
   const [isSubmittingUrl, setIsSubmittingUrl] = useState(false);
   const [urlError, setUrlError] = useState('');
 
+  // Repository state
+  const [repoInput, setRepoInput] = useState('');
+  const [isSubmittingRepo, setIsSubmittingRepo] = useState(false);
+  const [repoError, setRepoError] = useState('');
+
   async function handleGoToNewConversation() {
     setIsCreatingConv(true);
     try {
@@ -121,6 +126,50 @@ export default function AddSourceModal({
       setUrlError(err?.response?.data?.message || err.message || 'Failed to add URL source');
     } finally {
       setIsSubmittingUrl(false);
+    }
+  }
+
+  async function handleAddRepoSubmit(e) {
+    e.preventDefault();
+    setRepoError('');
+
+    const trimmed = repoInput.trim();
+    if (!trimmed) {
+      setRepoError('GitHub repository URL is required');
+      return;
+    }
+
+    if (!/^https:\/\/github\.com\/[^\/]+\/[^\/]+/i.test(trimmed)) {
+      setRepoError('URL must be in the format: https://github.com/owner/repository');
+      return;
+    }
+
+    let targetConvId = selectedConvId;
+    if (!targetConvId) {
+      if (conversations.length > 0) {
+        targetConvId = conversations[0].id;
+      } else {
+        setRepoError('Please start a conversation first to attach this repository.');
+        return;
+      }
+    }
+
+    setIsSubmittingRepo(true);
+    try {
+      const res = await documentService.addRepositorySource(
+        knowledgeBaseId,
+        targetConvId,
+        trimmed
+      );
+
+      if (onSourceAdded) {
+        onSourceAdded(res.document);
+      }
+      onClose();
+    } catch (err) {
+      setRepoError(err?.response?.data?.message || err.message || 'Failed to add repository');
+    } finally {
+      setIsSubmittingRepo(false);
     }
   }
 
@@ -204,7 +253,7 @@ export default function AddSourceModal({
             </div>
           </div>
 
-          {/* 2. Add URL (Now Active) */}
+          {/* 2. Add URL */}
           <div
             onClick={() => setSelectedType('url')}
             className="rounded-lg border p-4 cursor-pointer transition-all flex flex-col justify-between"
@@ -245,21 +294,22 @@ export default function AddSourceModal({
             </div>
           </div>
 
-          {/* 3. Connect Repository (Coming Soon) */}
+          {/* 3. Connect Repository (Now Active) */}
           <div
-            className="rounded-lg border p-4 opacity-50 cursor-not-allowed flex flex-col justify-between"
+            onClick={() => setSelectedType('repo')}
+            className="rounded-lg border p-4 cursor-pointer transition-all flex flex-col justify-between"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
-              borderColor: 'var(--border-subtle)',
+              backgroundColor: selectedType === 'repo' ? 'var(--nav-active-bg)' : 'var(--bg-elevated)',
+              borderColor: selectedType === 'repo' ? 'var(--accent)' : 'var(--border-default)',
             }}
           >
             <div>
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center mb-3"
                 style={{
-                  backgroundColor: 'var(--bg-surface)',
-                  color: 'var(--text-muted)',
-                  border: '1px solid var(--border-default)',
+                  backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                  color: '#c084fc',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
                 }}
               >
                 <RepoIcon />
@@ -268,19 +318,19 @@ export default function AddSourceModal({
                 Connect Repository
               </h3>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                GitHub, GitLab...
+                Public GitHub repos
               </p>
             </div>
             <div className="mt-4">
               <span
                 className="text-[10px] font-medium px-2 py-0.5 rounded-full"
                 style={{
-                  backgroundColor: 'var(--bg-surface)',
-                  color: 'var(--text-muted)',
-                  border: '1px solid var(--border-default)',
+                  backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                  color: 'var(--status-success)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
                 }}
               >
-                Coming soon
+                Supported
               </span>
             </div>
           </div>
@@ -440,6 +490,101 @@ export default function AddSourceModal({
                 style={{ backgroundColor: 'var(--accent)' }}
               >
                 {isSubmittingUrl ? 'Adding URL…' : 'Add URL'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Section for Connect Repository */}
+        {selectedType === 'repo' && (
+          <form
+            onSubmit={handleAddRepoSubmit}
+            className="rounded-lg border p-4 flex flex-col gap-3"
+            style={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-default)' }}
+          >
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-primary)' }}>
+                Public GitHub Repository URL
+              </p>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                RecallAI will download the repository archive, scan and filter source code and documentation, generate embeddings per file, and make the codebase queryable.
+              </p>
+
+              <div className="flex flex-col gap-2">
+                <input
+                  type="url"
+                  placeholder="https://github.com/owner/repository"
+                  value={repoInput}
+                  onChange={(e) => {
+                    setRepoInput(e.target.value);
+                    if (repoError) setRepoError('');
+                  }}
+                  className="w-full px-3 py-2 rounded text-xs border focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderColor: repoError ? 'var(--status-error)' : 'var(--border-default)',
+                    color: 'var(--text-primary)',
+                  }}
+                  disabled={isSubmittingRepo}
+                  autoFocus
+                />
+
+                <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                  Only public GitHub repositories are supported in this release.
+                </p>
+
+                {conversations.length > 0 && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Attach to conversation:</span>
+                    <select
+                      value={selectedConvId}
+                      onChange={(e) => setSelectedConvId(e.target.value)}
+                      className="px-2 py-1 rounded text-xs border focus:outline-none cursor-pointer"
+                      style={{
+                        backgroundColor: 'var(--bg-surface)',
+                        borderColor: 'var(--border-default)',
+                        color: 'var(--text-primary)',
+                      }}
+                      disabled={isSubmittingRepo}
+                    >
+                      {conversations.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title || `Conversation #${c.id}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {repoError && (
+              <p className="text-xs px-2.5 py-1.5 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-error)' }}>
+                {repoError}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 rounded text-xs cursor-pointer border"
+                style={{
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-secondary)',
+                  backgroundColor: 'transparent',
+                }}
+                disabled={isSubmittingRepo}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingRepo || !repoInput.trim()}
+                className="px-3 py-1.5 rounded text-xs font-medium text-white cursor-pointer disabled:opacity-50"
+                style={{ backgroundColor: 'var(--accent)' }}
+              >
+                {isSubmittingRepo ? 'Connecting Repository…' : 'Connect Repository'}
               </button>
             </div>
           </form>

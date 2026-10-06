@@ -12,11 +12,16 @@ Instructions:
 
 export function buildPrompt({ question, chunks }) {
     const context = chunks
-        .map(chunk => `
-Document ${chunk.documentId} | Chunk ${chunk.chunkIndex}
+        .map(chunk => {
+            const header = chunk.filePath
+                ? `File: ${chunk.filePath} (Source: ${chunk.documentName || chunk.documentId}) | Chunk ${chunk.chunkIndex}`
+                : `Document ${chunk.documentId}${chunk.documentName ? ` (${chunk.documentName})` : ''} | Chunk ${chunk.chunkIndex}`;
+            return `
+${header}
 
 ${chunk.content}
-`.trim())
+`.trim();
+        })
         .join("\n\n");
 
     const userPrompt = `

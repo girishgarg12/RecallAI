@@ -19,7 +19,11 @@ export async function retrieveRelevantChunks({
     return chunks.map(chunk => ({
         documentId: chunk.document_id,
         chunkIndex: chunk.chunk_index,
-        content: chunk.content
+        content: chunk.content,
+        documentName: chunk.document_name,
+        filePath: chunk.file_path,
+        sourceType: chunk.source_type,
+        parentSourceId: chunk.parent_source_id
     }));
 }
 
@@ -30,6 +34,10 @@ export async function retrieveAllChunks({ scope }) {
     return chunks.map(chunk => ({
         documentId: chunk.document_id,
         chunkIndex: chunk.chunk_index,
-        content: chunk.content
+        content: chunk.content,
+        documentName: chunk.document_name,
+        filePath: chunk.file_path,
+        sourceType: chunk.source_type,
+        parentSourceId: chunk.parent_source_id
     }));
 }

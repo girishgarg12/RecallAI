@@ -35,6 +35,37 @@ export async function addUrlSource(req, res) {
     });
 }
 
+export async function addRepositorySource(req, res) {
+    const { knowledgeBaseId, conversationId } = req.params;
+    const { url } = req.body;
+
+    const document = await documentService.addRepositorySource(
+        knowledgeBaseId,
+        conversationId,
+        url,
+        req.user
+    );
+
+    return res.status(202).json({
+        message: "Repository source accepted for processing",
+        document
+    });
+}
+
+export async function getRepositoryFiles(req, res) {
+    const { knowledgeBaseId, documentId } = req.params;
+
+    const files = await documentService.getRepositoryFiles(
+        knowledgeBaseId,
+        documentId,
+        req.user
+    );
+
+    return res.status(200).json({
+        files
+    });
+}
+
 export async function getConversationDocuments(req, res) {
     const { knowledgeBaseId, conversationId } = req.params;
 

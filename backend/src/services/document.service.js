@@ -9,6 +9,7 @@ import path from 'path';
 import AppError from '../errors/AppError.js';
 import documentQueue from '../queues/document.queue.js';
 import { validateUrl, normalizeUrl } from '../utils/url.util.js';
+import { validateAndParseGitHubUrl } from './repository/github.service.js';
 
 export async function uploadDocument(
     knowledgeBaseId,
@@ -131,6 +132,102 @@ export async function addUrlSource(
     );
 
     return document;
+}
+
+export async function addRepositorySource(
+    knowledgeBaseId,
+    conversationId,
+    rawUrl,
+    authenticatedUser
+) {
+    // 1. Verify user has access to knowledge base
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    // 2. Verify conversation belongs to knowledge base
+    const conversation =
+        await conversationRepository.getConversationByIdAndKnowledgeBaseId(
+            conversationId,
+            knowledgeBaseId
+        );
+
+    if (!conversation) {
+        throw new AppError("Conversation not found", 404);
+    }
+
+    // 3. Validate and parse GitHub URL
+    const { provider, owner, repo, normalizedUrl } = validateAndParseGitHubUrl(rawUrl);
+
+    // 4. Check for duplicate repository in the same Knowledge Base
+    const existing = await documentRepository.getRepositoryByIdentity(
+        knowledgeBaseId,
+        provider,
+        owner,
+        repo
+    );
+
+    if (existing) {
+        if (existing.status === DOCUMENT_STATUS.FAILED) {
+            await documentRepository.deleteDocument(existing.id);
+        } else {
+            throw new AppError(
+                `Repository '${owner}/${repo}' already exists in this Knowledge Base (Status: ${existing.status})`,
+                409
+            );
+        }
+    }
+
+    // 5. Create REPOSITORY document record with UPLOADED status and set as active source
+    const documentData = {
+        knowledgeBaseId,
+        conversationId,
+        name: `${owner}/${repo}`,
+        sourceUrl: normalizedUrl,
+        provider,
+        repoOwner: owner,
+        repoName: repo,
+        defaultBranch: 'main',
+        commitSha: null,
+        status: DOCUMENT_STATUS.UPLOADED
+    };
+
+    const document = await documentRepository.createRepositoryDocumentAndSetActiveSource(
+        documentData
+    );
+
+    // 6. Enqueue background processing job
+    await documentQueue.add(
+        JOB_NAMES.PROCESS_DOCUMENT,
+        {
+            documentId: document.id
+        }
+    );
+
+    return document;
+}
+
+export async function getRepositoryFiles(
+    knowledgeBaseId,
+    repositoryId,
+    authenticatedUser
+) {
+    await knowledgeBaseService.getKnowledgeBaseById(
+        knowledgeBaseId,
+        authenticatedUser
+    );
+
+    const repoDoc = await documentRepository.getDocumentByIdAndKnowledgeBaseId(
+        repositoryId,
+        knowledgeBaseId
+    );
+
+    if (!repoDoc || repoDoc.source_type !== 'REPOSITORY') {
+        throw new AppError("Repository source not found", 404);
+    }
+
+    return await documentRepository.getRepositoryFilesByParentId(repositoryId);
 }
 
 export async function getConversationDocuments(

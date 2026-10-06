@@ -51,6 +51,21 @@ export async function addUrlSource(knowledgeBaseId, conversationId, url) {
   return data; // { message, document }
 }
 
+export async function addRepositorySource(knowledgeBaseId, conversationId, url) {
+  const { data } = await apiClient.post(
+    `/knowledge-bases/${knowledgeBaseId}/conversations/${conversationId}/sources/repository`,
+    { url }
+  );
+  return data; // { message, document }
+}
+
+export async function getRepositoryFiles(knowledgeBaseId, repositoryId) {
+  const { data } = await apiClient.get(
+    `/knowledge-bases/${knowledgeBaseId}/documents/${repositoryId}/files`
+  );
+  return data; // { files }
+}
+
 export async function getDocuments(knowledgeBaseId) {
   const { data } = await apiClient.get(`/knowledge-bases/${knowledgeBaseId}/documents`);
   return data; // { documents }

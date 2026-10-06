@@ -170,8 +170,10 @@ export default function MessageBubble({ message, onOpenSources }) {
                   }}
                   title="Click to view in Sources panel"
                 >
-                  <SourceChipIcon name={src.name} />
-                  <span className="truncate max-w-[160px] font-medium">{src.name}</span>
+                  <SourceChipIcon name={src.file_path || src.name} />
+                  <span className="truncate max-w-[180px] font-medium" title={src.file_path || src.name}>
+                    {src.file_path || src.name}
+                  </span>
                   <span className="text-[10px]" style={{ color: 'var(--accent-text)' }}>
                     {idx === 0 ? 'Primary' : 'Context'}
                   </span>

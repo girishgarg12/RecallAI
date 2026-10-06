@@ -20,6 +20,7 @@ import AddSourceModal from '../components/sources/AddSourceModal.jsx';
 import ContextMenu from '../components/common/ContextMenu.jsx';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal.jsx';
 import RenameModal from '../components/common/RenameModal.jsx';
+import RepositoryFilesModal from '../components/sources/RepositoryFilesModal.jsx';
 
 const TERMINAL_STATUSES = ['READY', 'FAILED'];
 
@@ -83,6 +84,7 @@ export default function KnowledgeBasePage() {
   const [renameType, setRenameType] = useState(null); // 'conversation' | 'document'
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteType, setDeleteType] = useState(null); // 'conversation' | 'document'
+  const [viewFilesTarget, setViewFilesTarget] = useState(null);
 
   // Filter & Search states
   const [sourceFilter, setSourceFilter] = useState('ALL'); // 'ALL' | 'DOCUMENTS' | 'URLS' | 'CODE' | 'REPOSITORIES'
@@ -206,15 +208,23 @@ export default function KnowledgeBasePage() {
   // Filtered documents
   const filteredDocuments = useMemo(() => {
     let result = documents;
-    if (sourceFilter === 'URLS' || sourceFilter === 'CODE' || sourceFilter === 'REPOSITORIES') {
-      return []; // Future source types
+    if (sourceFilter === 'DOCUMENTS') {
+      result = result.filter((d) => d.source_type === 'FILE' || !d.source_type);
+    } else if (sourceFilter === 'URLS') {
+      result = result.filter((d) => d.source_type === 'URL');
+    } else if (sourceFilter === 'REPOSITORIES') {
+      result = result.filter((d) => d.source_type === 'REPOSITORY');
+    } else if (sourceFilter === 'CODE') {
+      return []; // Standalone code files future feature
     }
+
     if (sourceSearchQuery.trim()) {
       const q = sourceSearchQuery.toLowerCase();
       result = result.filter(
         (d) =>
           (d.name || '').toLowerCase().includes(q) ||
-          (d.original_filename || '').toLowerCase().includes(q)
+          (d.original_filename || '').toLowerCase().includes(q) ||
+          (d.source_url || '').toLowerCase().includes(q)
       );
     }
     return result;
@@ -507,10 +517,10 @@ export default function KnowledgeBasePage() {
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {[
                 { key: 'ALL', label: 'All', count: documents.length },
-                { key: 'DOCUMENTS', label: 'Documents', count: documents.length },
-                { key: 'URLS', label: 'URLs', count: 0 },
+                { key: 'DOCUMENTS', label: 'Documents', count: documents.filter(d => d.source_type === 'FILE' || !d.source_type).length },
+                { key: 'URLS', label: 'URLs', count: documents.filter(d => d.source_type === 'URL').length },
+                { key: 'REPOSITORIES', label: 'Repositories', count: documents.filter(d => d.source_type === 'REPOSITORY').length },
                 { key: 'CODE', label: 'Code', count: 0 },
-                { key: 'REPOSITORIES', label: 'Repositories', count: 0 },
               ].map((f) => (
                 <button
                   key={f.key}
@@ -597,6 +607,7 @@ export default function KnowledgeBasePage() {
                           setDeleteType('document');
                         }}
                         onDownload={handleDownload}
+                        onViewFiles={(d) => setViewFilesTarget(d)}
                       />
                     ))}
                   </tbody>
@@ -787,6 +798,15 @@ export default function KnowledgeBasePage() {
             setDeleteTarget(null);
             setDeleteType(null);
           }}
+        />
+      )}
+
+      {/* View Repository Files Modal */}
+      {viewFilesTarget && (
+        <RepositoryFilesModal
+          knowledgeBaseId={knowledgeBaseId}
+          repository={viewFilesTarget}
+          onClose={() => setViewFilesTarget(null)}
         />
       )}
     </div>

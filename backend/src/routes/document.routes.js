@@ -5,6 +5,7 @@ import validateUploadDocument from '../middleware/validateUploadDocument.js';
 import validateAskQuestion from '../middleware/validateAskQuestion.js';
 import validateUpdateDocument from '../middleware/validateUpdateDocument.js';
 import validateAddUrlSource from '../middleware/validateAddUrlSource.js';
+import validateAddRepositorySource from '../middleware/validateAddRepositorySource.js';
 import upload from '../config/multer.js';
 
 const router = express.Router();
@@ -22,6 +23,19 @@ router.post(
     authenticate,
     validateAddUrlSource,
     documentController.addUrlSource
+);
+
+router.post(
+    "/:knowledgeBaseId/conversations/:conversationId/sources/repository",
+    authenticate,
+    validateAddRepositorySource,
+    documentController.addRepositorySource
+);
+
+router.get(
+    "/:knowledgeBaseId/documents/:documentId/files",
+    authenticate,
+    documentController.getRepositoryFiles
 );
 
 

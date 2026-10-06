@@ -64,7 +64,8 @@ const config = {
     summarization: {
         provider: process.env.SUMMARIZER_PROVIDER,
         batchTokenLimit: 4000,
-        geminiBatchTokenLimit: 200000
+        geminiBatchTokenLimit: 200000,
+        geminiBatchDocLimit: Number(process.env.GEMINI_BATCH_DOC_LIMIT) || 8
     },
 
     llm: {
@@ -94,6 +95,20 @@ const config = {
 
         // Maximum number of redirects to follow manually (SSRF-safe).
         maxRedirects: 5
+    },
+
+    repositoryIngestion: {
+        // Maximum zip archive size in bytes (default: 100 MB)
+        maxArchiveSizeBytes: (Number(process.env.REPOSITORY_MAX_ARCHIVE_SIZE_MB) || 100) * 1024 * 1024,
+
+        // Maximum single file size in bytes to index (default: 1 MB)
+        maxFileSizeBytes: (Number(process.env.REPOSITORY_MAX_FILE_SIZE_MB) || 1) * 1024 * 1024,
+
+        // Timeout for GitHub API & download requests in ms (default: 120 seconds)
+        timeoutMs: Number(process.env.REPOSITORY_TIMEOUT_MS) || 120000,
+
+        // Maximum total files to index per repository to prevent unbounded processing
+        maxFilesCount: Number(process.env.REPOSITORY_MAX_FILES_COUNT) || 500
     }
 
 };

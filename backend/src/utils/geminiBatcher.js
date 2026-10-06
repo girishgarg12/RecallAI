@@ -1,6 +1,7 @@
 export function createGeminiBatches(
     chunks,
-    maxTokens
+    maxTokens,
+    maxDocsPerBatch = 8
 ) {
     if (chunks.length === 0) {
         return [];
@@ -23,10 +24,11 @@ export function createGeminiBatches(
         // --------------------------------------------------
         if (documentTokens <= maxTokens) {
 
-            // Current batch cannot fit this complete document.
+            // Current batch cannot fit this complete document (token limit or doc count limit).
             if (
                 currentBatch.length > 0 &&
-                currentTokens + documentTokens > maxTokens
+                (currentTokens + documentTokens > maxTokens ||
+                 currentBatch.length >= maxDocsPerBatch)
             ) {
                 batches.push(currentBatch);
 

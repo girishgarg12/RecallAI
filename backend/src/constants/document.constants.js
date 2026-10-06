@@ -14,5 +14,7 @@ export const DOCUMENT_MIME_TYPES = {
 
 export const SOURCE_TYPES = {
     FILE: "FILE",
-    URL: "URL"
+    URL: "URL",
+    REPOSITORY: "REPOSITORY",
+    REPOSITORY_FILE: "REPOSITORY_FILE"
 };

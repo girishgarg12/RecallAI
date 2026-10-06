@@ -38,7 +38,8 @@ export async function findRelevantChunks(      // does similarity comparison
 
     switch (scope.scope) {
         case "SOURCE":
-            scopeCondition = "d.id = $2";
+            // Matches the document directly, OR if the source is a repository, matches any file belonging to it
+            scopeCondition = "(d.id = $2 OR d.parent_source_id = $2)";
             scopeValue = scope.sourceId;
             break;
 
@@ -63,6 +64,10 @@ export async function findRelevantChunks(      // does similarity comparison
             dc.document_id,
             dc.content,
             dc.chunk_index,
+            d.name AS document_name,
+            d.file_path,
+            d.source_type,
+            d.parent_source_id,
             dc.embedding <=> $1 AS distance
         FROM document_chunks dc
         JOIN documents d
@@ -89,7 +94,7 @@ export async function getChunksByScope(scope) {      // Provide all Chunks
 
     switch (scope.scope) {
         case "SOURCE":
-            scopeCondition = "d.id = $1";
+            scopeCondition = "(d.id = $1 OR d.parent_source_id = $1)";
             scopeValue = scope.sourceId;
             break;
 
@@ -113,7 +118,11 @@ export async function getChunksByScope(scope) {      // Provide all Chunks
         SELECT
             dc.document_id,
             dc.chunk_index,
-            dc.content
+            dc.content,
+            d.name AS document_name,
+            d.file_path,
+            d.source_type,
+            d.parent_source_id
         FROM document_chunks dc
         JOIN documents d
             ON dc.document_id = d.id

@@ -61,7 +61,8 @@ export async function summarizeDocuments(chunks) {
 
     const batches = createGeminiBatches(
         chunks,
-        config.summarization.geminiBatchTokenLimit
+        config.summarization.geminiBatchTokenLimit,
+        config.summarization.geminiBatchDocLimit
     );
 
     console.log(

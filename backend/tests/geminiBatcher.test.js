@@ -89,6 +89,32 @@ function runTest() {
         );
     });
 
+    // --------------------------------------------------
+    // Test 3: Many small documents capped by maxDocsPerBatch
+    // --------------------------------------------------
+
+    const manyDocsChunks = [];
+    for (let i = 1; i <= 20; i++) {
+        manyDocsChunks.push(createChunk(i, 0, 100)); // ~25 tokens each
+    }
+
+    console.log("\n=== Test 3: Many Documents (Doc Limit per Batch) ===\n");
+
+    const docLimitBatches = createGeminiBatches(
+        manyDocsChunks,
+        200000,
+        8
+    );
+
+    console.log(`Created ${docLimitBatches.length} batches for 20 documents with limit 8 (expected: 3 batches).`);
+    docLimitBatches.forEach((batch, index) => {
+        console.log(`Batch ${index + 1} doc count: ${batch.length}`);
+    });
+
+    if (docLimitBatches.length !== 3) {
+        throw new Error(`Expected 3 batches, got ${docLimitBatches.length}`);
+    }
+
     console.log("\nAll tests completed.");
 }
 

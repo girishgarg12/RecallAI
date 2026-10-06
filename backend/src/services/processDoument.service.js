@@ -4,12 +4,17 @@ import * as documentChunkRepository from '../repositories/documentChunk.reposito
 import * as chunkingService from './chunking.service.js';
 import * as documentExtractionService from './documentExtraction.service.js';
 import * as embeddingService from './embedding.service.js';
-import { DOCUMENT_STATUS } from '../constants/document.constants.js';
+import { DOCUMENT_STATUS, SOURCE_TYPES } from '../constants/document.constants.js';
+import * as repositoryProcessingService from './repository/repositoryProcessing.service.js';
 
 export async function processDocument(documentId) {
     const document = await documentRepository.getDocumentById(documentId);
     if(!document){
         throw new AppError("Document not found", 404);
+    }
+
+    if (document.source_type === SOURCE_TYPES.REPOSITORY) {
+        return await repositoryProcessingService.processRepository(document);
     }
 
     try{

@@ -12,6 +12,17 @@ import SourceStatusBadge from './SourceStatusBadge.jsx';
 import ContextMenu from '../common/ContextMenu.jsx';
 
 function FileTypeIcon({ mimeType, name, sourceType }) {
+  if (sourceType === 'REPOSITORY') {
+    return (
+      <div
+        className="w-7 h-7 rounded flex items-center justify-center shrink-0 font-bold text-[9px]"
+        style={{ backgroundColor: 'rgba(168, 85, 247, 0.12)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)' }}
+      >
+        GIT
+      </div>
+    );
+  }
+
   if (sourceType === 'URL') {
     return (
       <div
@@ -85,15 +96,29 @@ function formatDate(dateStr) {
   });
 }
 
-export default function SourceRow({ source, onRename, onDelete, onDownload }) {
+export default function SourceRow({ source, onRename, onDelete, onDownload, onViewFiles }) {
   const isUrl = source.source_type === 'URL';
+  const isRepo = source.source_type === 'REPOSITORY';
   const displayName = source.name || (isUrl ? source.source_url : source.original_filename) || 'Untitled source';
 
   const menuItems = [
+    ...(isRepo ? [{ label: 'View Indexed Files', onClick: () => onViewFiles && onViewFiles(source) }] : []),
     { label: 'Rename', onClick: () => onRename(source) },
-    ...(!isUrl && source.status === 'READY' ? [{ label: 'Download', onClick: () => onDownload(source) }] : []),
+    ...(!isUrl && !isRepo && source.status === 'READY' ? [{ label: 'Download', onClick: () => onDownload(source) }] : []),
     { label: 'Delete', onClick: () => onDelete(source), danger: true },
   ];
+
+  // Helper subtitle text
+  let subText = formatSize(source.file_size);
+  if (isUrl) {
+    subText = source.source_url || 'Webpage URL';
+  } else if (isRepo) {
+    subText = `${source.default_branch || 'main'}${source.commit_sha ? ` • ${source.commit_sha.slice(0, 7)}` : ''}`;
+  }
+
+  let typeLabel = 'Document';
+  if (isUrl) typeLabel = 'URL';
+  if (isRepo) typeLabel = 'Repository';
 
   return (
     <tr
@@ -102,16 +127,33 @@ export default function SourceRow({ source, onRename, onDelete, onDownload }) {
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--nav-hover-bg)')}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
     >
-      {/* Name + Size / URL */}
+      {/* Name + Subtext */}
       <td className="py-3 px-4">
         <div className="flex items-center gap-3 min-w-0">
           <FileTypeIcon mimeType={source.mime_type} name={source.name || source.original_filename} sourceType={source.source_type} />
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }} title={displayName}>
-              {displayName}
-            </p>
+            <div className="flex items-center gap-2">
+              <p
+                className={`text-sm font-medium truncate ${isRepo ? 'cursor-pointer hover:underline' : ''}`}
+                style={{ color: 'var(--text-primary)' }}
+                title={displayName}
+                onClick={() => isRepo && onViewFiles && onViewFiles(source)}
+              >
+                {displayName}
+              </p>
+              {isRepo && (
+                <button
+                  type="button"
+                  onClick={() => onViewFiles && onViewFiles(source)}
+                  className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-white/5 cursor-pointer"
+                  style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)' }}
+                >
+                  files
+                </button>
+              )}
+            </div>
             <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }} title={isUrl ? source.source_url : undefined}>
-              {isUrl ? (source.source_url || 'Webpage URL') : formatSize(source.file_size)}
+              {subText}
             </p>
           </div>
         </div>
@@ -119,7 +161,7 @@ export default function SourceRow({ source, onRename, onDelete, onDownload }) {
 
       {/* Type */}
       <td className="py-3 px-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-        {isUrl ? 'URL' : 'Document'}
+        {typeLabel}
       </td>
 
       {/* Status */}
